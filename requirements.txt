@@ -1,0 +1,41 @@
+# Core Windows libraries for backdoor functionality
+pywin32==306
+
+# Keylogger dependencies
+pyHook==1.5.1
+pynput==1.7.6
+
+# Audio recording dependencies
+PyAudio==0.2.11
+
+# Video and screen recording dependencies
+opencv-python==4.8.1.78
+Pillow==10.0.1
+pyautogui==0.9.54
+
+# Image processing and screenshots
+numpy==1.24.4
+
+# Additional Windows-specific libraries
+WMI==1.5.1
+
+# HTTP/Web functionality (optional for enhanced features)
+requests==2.31.0
+
+# Encryption libraries (optional for secure communication)
+cryptography==41.0.7
+
+# System information gathering
+psutil==5.9.6
+
+# Network scanning capabilities (optional)
+python-nmap==0.7.1
+
+# File handling and compression
+zipfile36==0.1.3
+
+# JSON handling (built-in, but listed for clarity)
+# json - built-in module
+
+# Additional utility libraries
+colorama==0.4.6
