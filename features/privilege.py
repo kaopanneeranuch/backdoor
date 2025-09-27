@@ -9,14 +9,7 @@ from datetime import datetime
 # Windows 7 specific imports
 try:
     import win32api
-    import win32con
     import win32security
-    import win32process
-    import win32service
-    import win32serviceutil
-    import win32file
-    import win32pipe
-    import win32event
     import winreg
     WINDOWS_AVAILABLE = True
 except ImportError:
