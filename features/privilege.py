@@ -7,14 +7,9 @@ import time
 from datetime import datetime
 
 # Windows 7 specific imports
-try:
-    import win32api
-    import win32security
-    import winreg
-    WINDOWS_AVAILABLE = True
-except ImportError:
-    print("Windows libraries not available. Install pywin32")
-    WINDOWS_AVAILABLE = False
+import win32api
+import win32security
+import winreg
 
 
 class Windows7PrivilegeEscalator:
@@ -599,11 +594,7 @@ class Windows7PrivilegeEscalator:
 # Test the Windows 7 privilege escalator
 if __name__ == "__main__":
     print("Testing Windows 7 Privilege Escalator...")
-    
-    if not WINDOWS_AVAILABLE:
-        print("Windows libraries not available. Install pywin32")
-        exit(1)
-    
+
     escalator = Windows7PrivilegeEscalator("test_win7_privesc.log")
     
     print(f"Current privileges: {escalator.current_privileges}")

@@ -7,39 +7,17 @@ from datetime import datetime
 import base64
 
 # Audio and screen recording imports
-try:
-    import pyaudio
-    import wave
-    AUDIO_AVAILABLE = True
-except ImportError:
-    AUDIO_AVAILABLE = False
-    print("PyAudio not available. Install: pip install pyaudio")
+import pyaudio
+import wave
 
-try:
-    import cv2
-    import numpy as np
-    VIDEO_AVAILABLE = True
-except ImportError:
-    VIDEO_AVAILABLE = False
-    print("OpenCV not available. Install: pip install opencv-python")
+import cv2
+import numpy as np
 
-try:
-    from PIL import ImageGrab, Image
-    import pyautogui
-    SCREENSHOT_AVAILABLE = True
-except ImportError:
-    SCREENSHOT_AVAILABLE = False
-    print("PIL/PyAutoGUI not available. Install: pip install pillow pyautogui")
+from PIL import ImageGrab, Image
+import pyautogui
 
 # Windows specific imports
-try:
-    import win32api
-    import win32gui
-    import win32con
-    import win32clipboard
-    WINDOWS_AVAILABLE = True
-except ImportError:
-    WINDOWS_AVAILABLE = False
+import win32gui
 
 
 class AudioRecorder:
@@ -62,9 +40,6 @@ class AudioRecorder:
     
     def start_recording(self, duration=None, filename=None):
         """Start audio recording"""
-        if not AUDIO_AVAILABLE:
-            return False, "PyAudio not available"
-        
         if self.is_recording:
             return False, "Already recording"
         
@@ -156,9 +131,6 @@ class AudioRecorder:
     
     def get_audio_devices(self):
         """Get list of available audio input devices"""
-        if not AUDIO_AVAILABLE:
-            return []
-        
         devices = []
         try:
             p = pyaudio.PyAudio()
@@ -187,7 +159,7 @@ class ScreenRecorder:
         self.video_thread = None
         self.fps = 10.0  # Frames per second
         self.filename = None
-        self.fourcc = cv2.VideoWriter_fourcc(*'XVID') if VIDEO_AVAILABLE else None
+        self.fourcc = cv2.VideoWriter_fourcc(*'XVID')
         self.video_writer = None
         
         # Ensure output directory exists
@@ -196,9 +168,6 @@ class ScreenRecorder:
     
     def take_screenshot(self, filename=None):
         """Take a single screenshot"""
-        if not SCREENSHOT_AVAILABLE:
-            return False, "Screenshot libraries not available"
-        
         try:
             # Generate filename if not provided
             if filename is None:
@@ -217,10 +186,7 @@ class ScreenRecorder:
             return False, f"Screenshot error: {str(e)}"
     
     def start_screen_recording(self, duration=None, filename=None):
-        """Start screen recording"""
-        if not VIDEO_AVAILABLE or not SCREENSHOT_AVAILABLE:
-            return False, "Video recording libraries not available"
-        
+        """Start screen recording"""        
         if self.is_recording:
             return False, "Already recording"
         
@@ -291,10 +257,7 @@ class ScreenRecorder:
         return True, f"Screen recording stopped: {self.filename}"
     
     def get_window_screenshot(self, window_title=None):
-        """Take screenshot of specific window"""
-        if not WINDOWS_AVAILABLE or not SCREENSHOT_AVAILABLE:
-            return self.take_screenshot()  # Fallback to full screen
-        
+        """Take screenshot of specific window"""        
         try:
             if window_title:
                 # Find window by title
@@ -322,10 +285,7 @@ class ScreenRecorder:
             return False, f"Window screenshot error: {str(e)}"
     
     def get_active_windows(self):
-        """Get list of active windows"""
-        if not WINDOWS_AVAILABLE:
-            return []
-        
+        """Get list of active windows"""        
         windows = []
         
         def enum_windows_callback(hwnd, windows):
@@ -368,20 +328,26 @@ class SurveillanceRecorder:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # Start audio recording
-        if audio and AUDIO_AVAILABLE:
-            audio_success, audio_msg = self.audio_recorder.start_recording(
-                duration=duration, 
-                filename=f"surveillance_audio_{timestamp}.wav"
-            )
-            results.append(f"Audio: {audio_msg}")
+        if audio:
+            try:
+                audio_success, audio_msg = self.audio_recorder.start_recording(
+                    duration=duration, 
+                    filename=f"surveillance_audio_{timestamp}.wav"
+                )
+                results.append(f"Audio: {audio_msg}")
+            except Exception as e:
+                results.append(f"Audio: Error - {str(e)}")
         
         # Start screen recording
-        if video and VIDEO_AVAILABLE and SCREENSHOT_AVAILABLE:
-            video_success, video_msg = self.screen_recorder.start_screen_recording(
-                duration=duration,
-                filename=f"surveillance_video_{timestamp}.avi"
-            )
-            results.append(f"Video: {video_msg}")
+        if video:
+            try:
+                video_success, video_msg = self.screen_recorder.start_screen_recording(
+                    duration=duration,
+                    filename=f"surveillance_video_{timestamp}.avi"
+                )
+                results.append(f"Video: {video_msg}")
+            except Exception as e:
+                results.append(f"Video: Error - {str(e)}")
         
         self.surveillance_active = True
         return True, " | ".join(results)
@@ -418,7 +384,7 @@ class SurveillanceRecorder:
         results.append(f"Screenshot: {screenshot_msg}")
         
         # Record short audio sample (5 seconds)
-        if AUDIO_AVAILABLE:
+        try:
             audio_success, audio_msg = self.audio_recorder.start_recording(
                 duration=5,
                 filename=f"snapshot_audio_{timestamp}.wav"
@@ -427,30 +393,10 @@ class SurveillanceRecorder:
             
             # Wait for audio to complete
             time.sleep(6)
+        except Exception as e:
+            results.append(f"Audio: Error - {str(e)}")
         
         return True, " | ".join(results)
-    
-    def get_system_status(self):
-        """Get status of recording capabilities"""
-        status = {
-            'timestamp': datetime.now().isoformat(),
-            'audio_available': AUDIO_AVAILABLE,
-            'video_available': VIDEO_AVAILABLE,
-            'screenshot_available': SCREENSHOT_AVAILABLE,
-            'windows_available': WINDOWS_AVAILABLE,
-            'audio_recording': self.audio_recorder.is_recording,
-            'screen_recording': self.screen_recorder.is_recording,
-            'surveillance_active': self.surveillance_active,
-            'output_directory': self.output_dir
-        }
-        
-        if AUDIO_AVAILABLE:
-            status['audio_devices'] = self.audio_recorder.get_audio_devices()
-        
-        if WINDOWS_AVAILABLE:
-            status['active_windows'] = self.screen_recorder.get_active_windows()
-        
-        return status
     
     def list_recordings(self):
         """List all recorded files"""

