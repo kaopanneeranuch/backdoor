@@ -1,7 +1,7 @@
 # Core Windows libraries for backdoor functionality
 pywin32==306
 
-# Keylogger dependencies
+# Keylogger dependencies (Windows specific)
 pyHook==1.5.1
 pynput==1.7.6
 
