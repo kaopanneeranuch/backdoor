@@ -16,7 +16,6 @@ import numpy as np
 from PIL import ImageGrab, Image
 import pyautogui
 
-# Windows specific imports
 import win32gui
 
 
