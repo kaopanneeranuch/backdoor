@@ -59,7 +59,7 @@ class UnifiedKeyLogger(KeyLogger):
             return False
         
         self.is_running = True
-        self.log_keystroke("=== KEYLOGGER STARTED ===")
+        self.log_keystroke("\n=== KEYLOGGER STARTED ===")
         
         try:
             self.listener = keyboard.Listener(
@@ -78,7 +78,7 @@ class UnifiedKeyLogger(KeyLogger):
             return False
         
         self.is_running = False
-        self.log_keystroke("=== KEYLOGGER STOPPED ===")
+        self.log_keystroke("\n=== KEYLOGGER STOPPED ===")
         
         if self.listener:
             self.listener.stop()
