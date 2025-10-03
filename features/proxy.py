@@ -48,14 +48,10 @@ class HiddenChannel:
         target_socket = None
         
         try:
-            print(f"[DEBUG] New connection from {client_address}")  # Debug
-            
             # Create connection to target
             target_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             target_socket.settimeout(10)
-            print(f"[DEBUG] Connecting to {self.target_host}:{self.target_port}")  # Debug
             target_socket.connect((self.target_host, self.target_port))
-            print(f"[DEBUG] Connected to target successfully")  # Debug
             
             # Store connection info
             self.connections[connection_id] = {
@@ -69,7 +65,7 @@ class HiddenChannel:
             self.simple_forward(client_socket, target_socket, connection_id)
             
         except Exception as e:
-            print(f"[ERROR] Connection error: {e}")  # Debug
+            pass  # Silent failure for stealth
         finally:
             # Clean up sockets
             try:
@@ -83,7 +79,6 @@ class HiddenChannel:
                 pass
             if connection_id in self.connections:
                 del self.connections[connection_id]
-            print(f"[DEBUG] Connection {connection_id} closed")  # Debug
     
     def simple_forward(self, client_socket, target_socket, connection_id):
         """Simple bidirectional forwarding using select"""
@@ -95,14 +90,12 @@ class HiddenChannel:
                 ready, _, error = select.select(sockets, [], sockets, 1.0)
                 
                 if error:
-                    print("[DEBUG] Socket error detected")
                     break
                     
                 for sock in ready:
                     try:
                         data = sock.recv(4096)
                         if not data:
-                            print("[DEBUG] No data received, connection closed")
                             return
                         
                         # Forward data to the other socket
@@ -111,20 +104,17 @@ class HiddenChannel:
                             target_socket.send(data)
                             if connection_id in self.connections:
                                 self.connections[connection_id]['bytes_sent'] += len(data)
-                            print(f"[DEBUG] Forwarded {len(data)} bytes client->target")
                         else:
                             # Data from target to client
                             client_socket.send(data)
                             if connection_id in self.connections:
                                 self.connections[connection_id]['bytes_received'] += len(data)
-                            print(f"[DEBUG] Forwarded {len(data)} bytes target->client")
                             
                     except socket.error as e:
-                        print(f"[DEBUG] Socket error in forwarding: {e}")
                         return
                         
         except Exception as e:
-            print(f"[ERROR] Forward error: {e}")
+            pass  # Silent failure for stealth
     
     def forward_data(self, source_socket, destination_socket, connection_id, direction):
         """This method is no longer used - kept for compatibility"""
