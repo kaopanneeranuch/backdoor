@@ -448,7 +448,7 @@ class SurveillanceRecorder:
     
     def list_recordings(self):
         """Recordings are stored on server, not locally"""
-        return "Recordings are stored on the server (Kali), not on this target machine"
+        return "Recordings are stored on the server."
     
     def delete_recording(self, filename):
         """Delete a specific recording"""
