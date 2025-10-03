@@ -48,10 +48,14 @@ class HiddenChannel:
         target_socket = None
         
         try:
+            print(f"[DEBUG] New connection from {client_address}")  # Debug
+            
             # Create connection to target
             target_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            target_socket.settimeout(5)  # Add timeout
+            target_socket.settimeout(10)
+            print(f"[DEBUG] Connecting to {self.target_host}:{self.target_port}")  # Debug
             target_socket.connect((self.target_host, self.target_port))
+            print(f"[DEBUG] Connected to target successfully")  # Debug
             
             # Store connection info
             self.connections[connection_id] = {
@@ -61,30 +65,13 @@ class HiddenChannel:
                 'bytes_received': 0
             }
             
-            # Start bidirectional data forwarding
-            client_thread = threading.Thread(
-                target=self.forward_data, 
-                args=(client_socket, target_socket, connection_id, 'client_to_target'),
-                daemon=True
-            )
-            target_thread = threading.Thread(
-                target=self.forward_data, 
-                args=(target_socket, client_socket, connection_id, 'target_to_client'),
-                daemon=True
-            )
-            
-            client_thread.start()
-            target_thread.start()
-            
-            # Wait for connection to end naturally instead of blocking with join()
-            while (self.is_running and 
-                   client_thread.is_alive() and 
-                   target_thread.is_alive()):
-                time.sleep(0.1)
+            # Use simple select-based forwarding
+            self.simple_forward(client_socket, target_socket, connection_id)
             
         except Exception as e:
-            pass  # Silent failure for stealth
+            print(f"[ERROR] Connection error: {e}")  # Debug
         finally:
+            # Clean up sockets
             try:
                 client_socket.close()
             except:
@@ -96,34 +83,52 @@ class HiddenChannel:
                 pass
             if connection_id in self.connections:
                 del self.connections[connection_id]
+            print(f"[DEBUG] Connection {connection_id} closed")  # Debug
     
-    def forward_data(self, source_socket, destination_socket, connection_id, direction):
-        """Forward data between sockets"""
+    def simple_forward(self, client_socket, target_socket, connection_id):
+        """Simple bidirectional forwarding using select"""
+        sockets = [client_socket, target_socket]
+        
         try:
             while self.is_running:
-                # Use select for non-blocking check with longer timeout
-                ready = select.select([source_socket], [], [], 1.0)
-                if ready[0]:
-                    try:
-                        data = source_socket.recv(4096)
-                        if not data:
-                            break  # Connection closed
-                        
-                        destination_socket.send(data)
-                        
-                        # Update connection stats
-                        if connection_id in self.connections:
-                            if direction == 'client_to_target':
-                                self.connections[connection_id]['bytes_sent'] += len(data)
-                            else:
-                                self.connections[connection_id]['bytes_received'] += len(data)
-                                
-                    except socket.error:
-                        break  # Socket error, exit loop
+                # Wait for data on either socket
+                ready, _, error = select.select(sockets, [], sockets, 1.0)
                 
+                if error:
+                    print("[DEBUG] Socket error detected")
+                    break
+                    
+                for sock in ready:
+                    try:
+                        data = sock.recv(4096)
+                        if not data:
+                            print("[DEBUG] No data received, connection closed")
+                            return
+                        
+                        # Forward data to the other socket
+                        if sock is client_socket:
+                            # Data from client to target
+                            target_socket.send(data)
+                            if connection_id in self.connections:
+                                self.connections[connection_id]['bytes_sent'] += len(data)
+                            print(f"[DEBUG] Forwarded {len(data)} bytes client->target")
+                        else:
+                            # Data from target to client
+                            client_socket.send(data)
+                            if connection_id in self.connections:
+                                self.connections[connection_id]['bytes_received'] += len(data)
+                            print(f"[DEBUG] Forwarded {len(data)} bytes target->client")
+                            
+                    except socket.error as e:
+                        print(f"[DEBUG] Socket error in forwarding: {e}")
+                        return
+                        
         except Exception as e:
-            pass  # Silent failure
-        # Don't close sockets here - let handle_client_connection do it
+            print(f"[ERROR] Forward error: {e}")
+    
+    def forward_data(self, source_socket, destination_socket, connection_id, direction):
+        """This method is no longer used - kept for compatibility"""
+        pass
     
     def proxy_server_loop(self):
         """Main proxy server loop"""
