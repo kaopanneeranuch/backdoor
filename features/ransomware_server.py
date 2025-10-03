@@ -1,9 +1,3 @@
-################################################
-# Author: Watthanasak Jeamwatthanachai, PhD    #
-# Class: SIIT Ethical Hacking, 2023-2024       #
-# Ransomware Server - Pure Business Logic      #
-################################################
-
 import base64
 import json
 import time
