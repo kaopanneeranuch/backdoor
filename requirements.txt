@@ -1,15 +1,15 @@
-pywin32
+pywin32==227
 
-pynput>=1.7.3
+pynput>=1.7.3,<1.8.0
 
 PyAudio>=0.2.11
 
-opencv-python>=4.5.5.64,<4.8.0
-Pillow>=8.4.0,<10.0.0
+opencv-python==4.5.5.64
+Pillow>=8.4.0,<9.0.0
 PyAutoGUI>=0.9.53,<0.10.0
-numpy>=1.19.5,<1.22.0
+numpy==1.21.6
 
 psutil>=5.8.0,<6.0.0
-winshell>=0.4.7,<0.5.0
+winshell==0.6
 
 requests>=2.25.1,<3.0.0

