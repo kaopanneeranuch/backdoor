@@ -109,48 +109,42 @@ class HiddenChannel:
                 del self.connections[connection_id]
     
     def simple_forward(self, client_socket, target_socket, connection_id):
-        """Simple bidirectional forwarding using select"""
         try:
             while self.is_running:
-                # Wait for data on either socket with longer timeout
                 ready, _, error = select.select([client_socket, target_socket], [], [client_socket, target_socket], 2.0)
                 
-                # Check for socket errors
                 if error:
+                    print("Error occurred, closing connection...")
                     break
-                
-                # If no sockets are ready, continue the loop
+
                 if not ready:
                     continue
-                    
+                
                 for sock in ready:
                     try:
                         data = sock.recv(4096)
                         if not data:
                             # Connection closed
+                            print("No data received. Closing connection...")
                             return
                         
-                        # Forward data to the other socket
+                        # Print out the received data for debugging
                         if sock is client_socket:
-                            # Data from client (netcat) to target (Kali server)
-                            target_socket.sendall(data)  # Use sendall for reliable sending
-                            if connection_id in self.connections:
-                                self.connections[connection_id]['bytes_sent'] += len(data)
+                            print(f"Received from client: {data.decode()}")
+                            target_socket.sendall(data)
                         else:
-                            # Data from target (Kali server) to client (netcat)
-                            client_socket.sendall(data)  # Use sendall for reliable sending
-                            if connection_id in self.connections:
-                                self.connections[connection_id]['bytes_received'] += len(data)
-                                
-                    except socket.error:
-                        # Socket error occurred, close connection
+                            print(f"Received from target: {data.decode()}")
+                            client_socket.sendall(data)
+                    
+                    except socket.error as e:
+                        print(f"Socket error: {e}")
                         return
-                    except Exception:
-                        # Other error, close connection
+                    except Exception as e:
+                        print(f"General error: {e}")
                         return
-                        
-        except Exception:
-            pass  # Silent failure for stealth
+        except Exception as e:
+            print(f"Error in simple_forward: {e}")
+
     
     def forward_data(self, source_socket, destination_socket, connection_id, direction):
         """This method is no longer used - kept for compatibility"""
