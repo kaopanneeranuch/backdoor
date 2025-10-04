@@ -1,12 +1,10 @@
 import socket
 import threading
 import time
-import json
 import select
 import random
 from datetime import datetime
 import subprocess
-import os
 
 
 class HiddenChannel:

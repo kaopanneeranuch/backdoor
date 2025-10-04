@@ -1,10 +1,6 @@
 import os
-import sys
 import time
 import threading
-import json
-import tempfile
-import io
 from datetime import datetime
 
 # Audio and screen recording imports

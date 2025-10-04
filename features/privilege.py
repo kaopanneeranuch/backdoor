@@ -2,11 +2,8 @@ import os
 import sys
 import subprocess
 import ctypes
-import json
 import time
 import tempfile
-import shutil
-import struct
 from datetime import datetime
 
 # Windows 7 specific imports
