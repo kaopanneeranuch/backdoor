@@ -12,7 +12,7 @@ import select  # For handling multiple sockets
 import time  # For timing operations
 
 # Import configuration
-from configuration import SERVER_IP, SERVER_PORT, PROXY_PORT_START, PROXY_PORT_END, PROXY_PORT
+from configuration import SERVER_IP, SERVER_PORT, PROXY_PORT_START, PROXY_PORT_END
 
 
 # Function to send data reliably as JSON-encoded strings
