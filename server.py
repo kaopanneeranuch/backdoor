@@ -6,9 +6,6 @@
 # Import necessary libraries
 import socket  # This library is used for creating socket connections.
 import json  # JSON is used for encoding and decoding data in a structured format.
-import os  # This library allows interaction with the operating system.
-import base64  # For decoding image/audio data
-import datetime  # For timestamps
 
 
 # Function to send data reliably as JSON-encoded strings
