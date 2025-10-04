@@ -193,10 +193,10 @@ class HiddenChannel:
             
             # Start process in background (detached from parent)
             if os.name == 'nt':  # Windows
-                # Use CREATE_NEW_PROCESS_GROUP to detach from parent
+                # Use DETACHED_PROCESS and CREATE_NEW_PROCESS_GROUP for full independence
                 self.proxy_process = subprocess.Popen(
                     cmd,
-                    creationflags=subprocess.CREATE_NEW_PROCESS_GROUP,
+                    creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                     stdin=subprocess.DEVNULL

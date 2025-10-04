@@ -142,14 +142,27 @@ class PermanentProxy:
 def main():
     """Main function - run permanent proxy"""
     if len(sys.argv) != 2:
-        print("Usage: python standalone_proxy.py <port>")
         sys.exit(1)
     
     try:
         port = int(sys.argv[1])
     except ValueError:
-        print("Error: Port must be a number")
         sys.exit(1)
+    
+    # Detach from parent process completely (Windows specific)
+    if os.name == 'nt':  # Windows
+        try:
+            # Close stdin, stdout, stderr to fully detach
+            sys.stdin.close()
+            sys.stdout.close() 
+            sys.stderr.close()
+            
+            # Reopen as devnull to prevent errors
+            sys.stdin = open(os.devnull, 'r')
+            sys.stdout = open(os.devnull, 'w')
+            sys.stderr = open(os.devnull, 'w')
+        except:
+            pass
     
     # Create and run permanent proxy
     proxy = PermanentProxy(port)
@@ -157,10 +170,17 @@ def main():
     try:
         # Run the server (blocks indefinitely)
         proxy.run_server()
+        
+        # Keep process alive even if server stops
+        while True:
+            time.sleep(60)  # Sleep to keep process alive
+            
     except KeyboardInterrupt:
         proxy.is_running = False
     except Exception as e:
-        pass
+        # Keep trying even on errors
+        while True:
+            time.sleep(60)
 
 if __name__ == "__main__":
     main()
