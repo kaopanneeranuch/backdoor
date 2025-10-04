@@ -237,7 +237,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # Allow socket reuse to prevent "Address already in use" error
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-sock.bind((SERVER_IP, SERVER_PORT)) 
+sock.bind(('0.0.0.0', SERVER_PORT)) 
 
 # Start listening for incoming connections (maximum 5 concurrent connections).
 print(f'[+] Listening For The Incoming Connections on port {SERVER_PORT}')
