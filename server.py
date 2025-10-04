@@ -114,6 +114,7 @@ def target_communication():
     print("   stop_proxy             - Stop proxy channel")
     print("   proxy_status           - Get proxy status")
     print("   test_proxy             - Test if proxy is responding")
+    print("   test_proxy_full        - Test proxy with real backdoor command")
     print("")
     print(f"Connected to target: {ip[0]}:{ip[1]}")
     
