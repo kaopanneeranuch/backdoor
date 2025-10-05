@@ -123,6 +123,7 @@ def target_communication():
             download_file(filename)
         elif command.startswith('upload '):
             # If the user enters 'upload', initiate the upload of a file to the target.
+            import os
             filename = command[7:].strip()
             if filename and os.path.exists(filename):
                 upload_file(filename)
