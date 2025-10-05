@@ -4,7 +4,7 @@ import subprocess
 import ctypes
 import time
 import tempfile
-from datetime import datetime
+from datetime import date
 
 # Windows 7 specific imports
 import win32api

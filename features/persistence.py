@@ -4,8 +4,6 @@ import time
 import random
 from datetime import datetime
 import subprocess
-
-# Import configuration variables from parent directory
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
