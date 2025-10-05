@@ -337,7 +337,7 @@ class Windows7PrivilegeEscalator:
                 'error': str(e)
             }
     
-    def generate_windows7_report(self):
+    def generate_privilege_report(self):
         """Generate comprehensive privilege report"""
         try:
             # Get current status
@@ -347,7 +347,6 @@ class Windows7PrivilegeEscalator:
             
             # System info
             try:
-                import platform
                 system_info = {
                     'computer_name': os.environ.get('COMPUTERNAME', 'Unknown'),
                     'username': os.environ.get('USERNAME', 'Unknown'),
@@ -403,7 +402,7 @@ if __name__ == "__main__":
     
     # Generate report
     print("\nGenerating privilege report...")
-    report = escalator.generate_windows7_report()
+    report = escalator.generate_privilege_report()
     
     print(f"\nPrivilege Report:")
     print(f"  Current User: {report.get('user_info', {}).get('current_user', 'Unknown')}")

