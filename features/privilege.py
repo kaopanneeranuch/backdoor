@@ -3,7 +3,6 @@ import subprocess
 import time
 import winreg
 import tempfile
-import ctypes
 import random
 
 class Windows7PrivilegeEscalator:
