@@ -8,7 +8,7 @@ import pyaudio
 import wave
 import cv2
 import numpy as np
-from PIL import ImageGrab, Image
+from PIL import ImageGrab
 import pyautogui
 import win32gui
 
